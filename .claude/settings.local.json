@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/igort/OneDrive/Desktop/Igor/delivery/**)",
+      "Bash(tar -czf delivery-hub-backup-20260406.tar.gz --exclude='node_modules' --exclude='.next' --exclude='.git' delivery-hub)"
+    ]
+  }
+}
