@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Bot, Clock, Power, MessageCircle, Save, Loader2, CheckCircle2,
   Megaphone, Plus, Send, Users, Calendar, Trash2, Upload, Truck, Pencil,
-  Sparkles, CreditCard, Store,
+  Sparkles, CreditCard, Store, HelpCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/lib/supabase";
+import { supabase, type Faq } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -114,8 +114,17 @@ export default function Automations() {
   const [savingPerfil, setSavingPerfil] = useState(false);
   const [perfilNome, setPerfilNome] = useState("");
   const [perfilTipo, setPerfilTipo] = useState("");
+  const [perfilTipoCustom, setPerfilTipoCustom] = useState("");
   const [perfilDescricao, setPerfilDescricao] = useState("");
   const [perfilTelCozinha, setPerfilTelCozinha] = useState("");
+  const [perfilEndereco, setPerfilEndereco] = useState("");
+
+  // FAQ state
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [faqDialog, setFaqDialog] = useState(false);
+  const [editingFaq, setEditingFaq] = useState<Faq | null>(null);
+  const [faqForm, setFaqForm] = useState({ pergunta: "", resposta: "" });
+  const [savingFaq, setSavingFaq] = useState(false);
 
   // Campaigns state
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -167,15 +176,22 @@ export default function Automations() {
     // Carrega perfil para a IA
     const { data: perfil } = await supabase
       .from("profiles")
-      .select("nome, tipo_estabelecimento, descricao_estabelecimento, telefone_cozinha")
+      .select("nome, tipo_estabelecimento, descricao_estabelecimento, telefone_cozinha, endereco")
       .eq("id", user.id)
       .single();
 
     if (perfil) {
       setPerfilNome(perfil.nome || "");
-      setPerfilTipo(perfil.tipo_estabelecimento || "");
+      const tipoSalvo = perfil.tipo_estabelecimento || "";
+      if (tipoSalvo && !tiposEstabelecimento.includes(tipoSalvo)) {
+        setPerfilTipo("outro");
+        setPerfilTipoCustom(tipoSalvo);
+      } else {
+        setPerfilTipo(tipoSalvo);
+      }
       setPerfilDescricao(perfil.descricao_estabelecimento || "");
       setPerfilTelCozinha(perfil.telefone_cozinha || "");
+      setPerfilEndereco(perfil.endereco || "");
     }
 
     // Load campaigns
@@ -186,6 +202,14 @@ export default function Automations() {
       .order("criado_em", { ascending: false });
 
     setCampaigns(campData || []);
+
+    // Load FAQs
+    const { data: faqData } = await supabase
+      .from("faqs")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("ordem", { ascending: true });
+    setFaqs(faqData || []);
 
     // Customer count
     const { count } = await supabase
@@ -238,9 +262,10 @@ export default function Automations() {
     setSavingPerfil(true);
     const { error } = await supabase.from("profiles").update({
       nome: perfilNome,
-      tipo_estabelecimento: perfilTipo || null,
+      tipo_estabelecimento: perfilTipo === "outro" ? (perfilTipoCustom.trim() || "outro") : (perfilTipo || null),
       descricao_estabelecimento: perfilDescricao || null,
       telefone_cozinha: perfilTelCozinha || null,
+      endereco: perfilEndereco || null,
       atualizado_em: new Date().toISOString(),
     }).eq("id", user.id);
     if (error) {
@@ -561,18 +586,17 @@ export default function Automations() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                A IA responde automaticamente com base no seu cardápio, preços e configurações.
-                O prompt é montado automaticamente quando você altera itens na aba Cardápio.
+                A IA responde automaticamente com base no perfil, cardápio, entrega, horário, formas de pagamento e FAQs configurados abaixo.
               </p>
             </CardContent>
           </Card>
 
-          {/* Perfil do Restaurante para IA */}
+          {/* Perfil do Estabelecimento para IA */}
           <Card className="shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Store className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base">Perfil do Restaurante</CardTitle>
+                <CardTitle className="text-base">Perfil do Estabelecimento</CardTitle>
               </div>
               <CardDescription>A IA usa esses dados para se apresentar e contextualizar o atendimento</CardDescription>
             </CardHeader>
@@ -588,7 +612,7 @@ export default function Automations() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Tipo de estabelecimento</Label>
-                  <Select value={perfilTipo} onValueChange={setPerfilTipo}>
+                  <Select value={perfilTipo} onValueChange={(v) => { setPerfilTipo(v); if (v !== "outro") setPerfilTipoCustom(""); }}>
                     <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
                       {tiposEstabelecimento.map(t => (
@@ -596,6 +620,14 @@ export default function Automations() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {perfilTipo === "outro" && (
+                    <Input
+                      value={perfilTipoCustom}
+                      onChange={e => setPerfilTipoCustom(e.target.value)}
+                      placeholder="Ex: Sorveteria, Pastelaria, Doceria..."
+                      className="mt-2"
+                    />
+                  )}
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -616,6 +648,15 @@ export default function Automations() {
                   placeholder="Ex: 5531999990000"
                 />
                 <p className="text-[11px] text-muted-foreground">Número com DDI+DDD. A IA envia aqui quando confirmar um pedido.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Endereço do estabelecimento</Label>
+                <Input
+                  value={perfilEndereco}
+                  onChange={e => setPerfilEndereco(e.target.value)}
+                  placeholder="Ex: Rua das Flores, 123 - Centro"
+                />
+                <p className="text-[11px] text-muted-foreground">A IA informa este endereço quando o cliente perguntar.</p>
               </div>
               <Button
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
@@ -754,6 +795,69 @@ export default function Automations() {
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
             {saving ? "Salvando..." : saved ? "Salvo!" : "Salvar configurações"}
           </Button>
+
+          {/* ── FAQ ──────────────────────────────────────────────────────── */}
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2"><HelpCircle className="h-5 w-5" />Perguntas Frequentes</CardTitle>
+                <CardDescription>A IA usa estas respostas automaticamente quando o cliente pergunta</CardDescription>
+              </div>
+              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 gap-1.5" onClick={() => {
+                setEditingFaq(null);
+                setFaqForm({ pergunta: "", resposta: "" });
+                setFaqDialog(true);
+              }}>
+                <Plus className="h-4 w-4" />Nova FAQ
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {faqs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <HelpCircle className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Nenhuma FAQ cadastrada</p>
+                  <p className="text-xs mt-1">Adicione perguntas frequentes para a IA responder automaticamente</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {faqs.map(faq => (
+                    <div key={faq.id} className={`border rounded-lg p-4 ${!faq.ativo ? "opacity-50" : ""}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{faq.pergunta}</p>
+                          <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{faq.resposta}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Switch
+                            checked={faq.ativo}
+                            onCheckedChange={async (v) => {
+                              setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, ativo: v } : f));
+                              await supabase.from("faqs").update({ ativo: v }).eq("id", faq.id).eq("user_id", user!.id);
+                              toast({ title: v ? "FAQ ativada" : "FAQ desativada" });
+                            }}
+                          />
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                            setEditingFaq(faq);
+                            setFaqForm({ pergunta: faq.pergunta, resposta: faq.resposta });
+                            setFaqDialog(true);
+                          }}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={async () => {
+                            await supabase.from("faqs").delete().eq("id", faq.id).eq("user_id", user!.id);
+                            setFaqs(prev => prev.filter(f => f.id !== faq.id));
+                            toast({ title: "FAQ excluída" });
+                          }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── TAB: Campanhas ───────────────────────────────────────────────── */}
@@ -885,7 +989,69 @@ export default function Automations() {
             </Card>
           )}
         </TabsContent>
+
       </Tabs>
+
+      {/* ── FAQ Dialog ───────────────────────────────────────────────────── */}
+      <Dialog open={faqDialog} onOpenChange={setFaqDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingFaq ? "Editar FAQ" : "Nova FAQ"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Pergunta</Label>
+              <Input
+                value={faqForm.pergunta}
+                onChange={e => setFaqForm({ ...faqForm, pergunta: e.target.value })}
+                placeholder="Ex: Vocês aceitam encomenda para festa?"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Resposta</Label>
+              <Textarea
+                value={faqForm.resposta}
+                onChange={e => setFaqForm({ ...faqForm, resposta: e.target.value })}
+                placeholder="Ex: Sim! Entre em contato com antecedência para combinarmos."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFaqDialog(false)}>Cancelar</Button>
+            <Button
+              className="bg-orange-500 hover:bg-orange-600"
+              disabled={savingFaq || !faqForm.pergunta.trim() || !faqForm.resposta.trim()}
+              onClick={async () => {
+                if (!user) return;
+                setSavingFaq(true);
+                if (editingFaq) {
+                  await supabase.from("faqs").update({
+                    pergunta: faqForm.pergunta.trim(),
+                    resposta: faqForm.resposta.trim(),
+                  }).eq("id", editingFaq.id).eq("user_id", user.id);
+                  toast({ title: "FAQ atualizada" });
+                } else {
+                  await supabase.from("faqs").insert({
+                    user_id: user.id,
+                    pergunta: faqForm.pergunta.trim(),
+                    resposta: faqForm.resposta.trim(),
+                    ativo: true,
+                    ordem: faqs.length,
+                  });
+                  toast({ title: "FAQ criada" });
+                }
+                setFaqDialog(false);
+                setSavingFaq(false);
+                await loadData();
+              }}
+            >
+              {savingFaq && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              {editingFaq ? "Salvar" : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Campaign Dialog ──────────────────────────────────────────────── */}
       <Dialog open={campaignDialog} onOpenChange={setCampaignDialog}>

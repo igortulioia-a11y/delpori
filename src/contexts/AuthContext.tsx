@@ -59,35 +59,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
-        loadTeamRole(session.user.id);
+    const initSession = async (retries = 2) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          loadProfile(session.user.id);
+          loadTeamRole(session.user.id);
+        }
+      } catch (err: any) {
+        // Retry em caso de "Lock broken" (conflito de refresh entre abas/requests)
+        if (retries > 0 && err?.message?.includes("Lock")) {
+          await new Promise(r => setTimeout(r, 500));
+          return initSession(retries - 1);
+        }
       }
       setIsLoading(false);
-    }).catch(() => {
-      setIsLoading(false);
-    });
+    };
+    initSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(prev => {
-        if (prev?.access_token === newSession?.access_token) return prev;
-        return newSession;
-      });
-      setUser(prev => {
-        const newUser = newSession?.user ?? null;
-        if (prev?.id === newUser?.id) return prev;
-        return newUser;
-      });
-      if (newSession?.user) {
-        await loadProfile(newSession.user.id);
-        await loadTeamRole(newSession.user.id);
-      } else {
-        setProfile(null);
-        setTeamRole("owner");
-        setPermissoes([]);
+      try {
+        setSession(prev => {
+          if (prev?.access_token === newSession?.access_token) return prev;
+          return newSession;
+        });
+        setUser(prev => {
+          const newUser = newSession?.user ?? null;
+          if (prev?.id === newUser?.id) return prev;
+          return newUser;
+        });
+        if (newSession?.user) {
+          // Sem await — nao bloqueia a UI durante refresh de token
+          loadProfile(newSession.user.id);
+          loadTeamRole(newSession.user.id);
+        } else {
+          setProfile(null);
+          setTeamRole("owner");
+          setPermissoes([]);
+        }
+      } catch (err: any) {
+        if (!err?.message?.includes("Lock")) console.error("Auth state error:", err);
       }
       setIsLoading(false);
     });

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Pencil, Trash2, Loader2, UtensilsCrossed, Upload, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, UtensilsCrossed, Upload, X, Download } from "lucide-react";
+import { ImportMenuDialog } from "@/components/ImportMenuDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Categorias: dos produtos + customizadas
@@ -205,9 +207,14 @@ export default function Products() {
           <h1 className="text-2xl font-semibold tracking-tight">Cardápio</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie os itens do seu delivery</p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" /> Adicionar produto
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+            <Download className="h-4 w-4" /> Importar UaiRango
+          </Button>
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" /> Adicionar produto
+          </Button>
+        </div>
       </div>
 
       {/* Category filter + manage */}
@@ -499,6 +506,13 @@ export default function Products() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import UaiRango Dialog */}
+      <ImportMenuDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImportComplete={loadProducts}
+      />
     </div>
   );
 }

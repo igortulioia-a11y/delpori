@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Store, Link2, Loader2, Smartphone, CheckCircle2, XCircle,
   RefreshCw, Wifi, WifiOff, QrCode, AlertCircle, Clock,
-  Users, Mail, Trash2, ShieldCheck, UserPlus,
+  Users, Mail, Trash2, ShieldCheck, UserPlus, Upload,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ interface AutomationInfo {
 const integrations = [
   { nome: "iFood",        descricao: "Sincronize pedidos do iFood" },
   { nome: "Rappi",        descricao: "Integração com Rappi" },
+  { nome: "UaiRango",     descricao: "Integração com UaiRango" },
   { nome: "Mercado Pago", descricao: "Receba pagamentos online" },
 ];
 
@@ -150,9 +151,31 @@ export default function SettingsPage() {
   // ── Restaurante state ──────────────────────────────────────────────────────
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [restaurante, setRestaurante] = useState({
     telefone: "", endereco: "", slug: "", logo_url: "",
   });
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Imagem muito grande", description: "Máximo 2MB", variant: "destructive" });
+      return;
+    }
+    setUploadingLogo(true);
+    const ext = file.name.split(".").pop();
+    const path = `logos/${user.id}.${ext}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
+    if (error) {
+      toast({ title: "Erro ao enviar logo", description: error.message, variant: "destructive" });
+    } else {
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setRestaurante(r => ({ ...r, logo_url: data.publicUrl }));
+      toast({ title: "Logo enviado!" });
+    }
+    setUploadingLogo(false);
+  };
 
   const loadProfile = useCallback(async () => {
     if (!user) { setLoading(false); return; }
@@ -317,17 +340,12 @@ export default function SettingsPage() {
                 <Store className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">Contato e Links</CardTitle>
               </div>
-              <CardDescription>Telefone, endereço e cardápio digital</CardDescription>
+              <CardDescription>Telefone e cardápio digital</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Telefone</Label>
                 <Input value={restaurante.telefone} onChange={(e) => setRestaurante({ ...restaurante, telefone: e.target.value })} />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Endereço</Label>
-                <Input value={restaurante.endereco} onChange={(e) => setRestaurante({ ...restaurante, endereco: e.target.value })} />
               </div>
 
               <div className="space-y-2">
@@ -341,8 +359,27 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>URL do logo</Label>
-                <Input value={restaurante.logo_url} onChange={(e) => setRestaurante({ ...restaurante, logo_url: e.target.value })} placeholder="https://..." />
+                <Label>Logo</Label>
+                <div className="flex items-center gap-3">
+                  {restaurante.logo_url && (
+                    <img src={restaurante.logo_url} alt="Logo" className="h-12 w-12 rounded-lg object-cover border" />
+                  )}
+                  <div className="flex-1 flex gap-2">
+                    <Input
+                      value={restaurante.logo_url}
+                      onChange={(e) => setRestaurante({ ...restaurante, logo_url: e.target.value })}
+                      placeholder="https://... ou faça upload"
+                      className="flex-1"
+                    />
+                    <Button variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingLogo} asChild>
+                      <label className="cursor-pointer">
+                        {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        {uploadingLogo ? "Enviando..." : "Upload"}
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                      </label>
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               <Button className="mt-2" onClick={handleSave} disabled={saving}>
