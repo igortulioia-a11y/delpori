@@ -858,7 +858,7 @@ export default function Automations() {
         <TabsContent value="campanhas" className="space-y-6 mt-0">
 
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <p className="text-sm text-muted-foreground">
                 Envie mensagens em massa para seus clientes. Limite: 50 mensagens por campanha, 1 por minuto.
@@ -867,11 +867,11 @@ export default function Automations() {
                 <Users className="h-3 w-3 inline mr-1" />{customerCount} clientes cadastrados
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setImportDialog(true)} className="gap-1.5">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => setImportDialog(true)} className="gap-1.5 w-full sm:w-auto">
                 <Upload className="h-4 w-4" />Importar contatos
               </Button>
-              <Button onClick={() => openNewCampaign()} className="gap-1.5">
+              <Button onClick={() => openNewCampaign()} className="gap-1.5 w-full sm:w-auto">
                 <Plus className="h-4 w-4" />Nova campanha
               </Button>
             </div>
@@ -910,75 +910,82 @@ export default function Automations() {
                 <CardTitle className="text-base">Histórico de campanhas</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Campanha</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Enviadas</TableHead>
-                      <TableHead className="text-right">Erros</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {campaigns.map(c => (
-                      <TableRow key={c.id}>
-                        <TableCell>
-                          <p className="font-medium text-sm">{c.nome}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {c.agendado_para
-                              ? `Agendada: ${new Date(c.agendado_para).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
-                              : new Date(c.criado_em).toLocaleDateString("pt-BR")}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`text-[10px] ${CAMPAIGN_TYPE[c.tipo]}`}>{tipoLabel[c.tipo]}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`text-[10px] ${CAMPAIGN_STATUS[c.status]}`}>{statusLabel[c.status]}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-sm">
-                          {c.total_enviados}/{c.total_destinatarios}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-sm text-red-500">
-                          {c.total_erros || 0}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            {(c.status === "rascunho" || c.status === "agendada") && (
-                              <Button
-                                size="sm" variant="outline" className="h-7 text-xs gap-1"
-                                onClick={() => executeCampaign(c.id)}
-                                disabled={!!sendingCampaign}
-                              >
-                                <Send className="h-3 w-3" />Enviar
-                              </Button>
-                            )}
-                            {(c.status === "rascunho" || c.status === "agendada") && (
-                              <Button
-                                size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-                                onClick={() => openEditCampaign(c)}
-                                title="Editar campanha"
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                            )}
-                            {(c.status === "rascunho" || c.status === "agendada" || c.status === "cancelada") && (
-                              <Button
-                                size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => deleteCampaign(c.id)}
-                                title="Excluir campanha"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Campanha</TableHead>
+                        <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="hidden sm:table-cell text-right">Enviadas</TableHead>
+                        <TableHead className="hidden sm:table-cell text-right">Erros</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {campaigns.map(c => (
+                        <TableRow key={c.id}>
+                          <TableCell>
+                            <p className="font-medium text-sm">{c.nome}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {c.agendado_para
+                                ? `Agendada: ${new Date(c.agendado_para).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                                : new Date(c.criado_em).toLocaleDateString("pt-BR")}
+                            </p>
+                            <div className="flex gap-1.5 mt-1 sm:hidden">
+                              <Badge className={`text-[10px] ${CAMPAIGN_TYPE[c.tipo]}`}>{tipoLabel[c.tipo]}</Badge>
+                              <span className="text-xs tabular-nums text-muted-foreground">{c.total_enviados}/{c.total_destinatarios}</span>
+                              {(c.total_erros || 0) > 0 && <span className="text-xs tabular-nums text-red-500">{c.total_erros} erros</span>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge className={`text-[10px] ${CAMPAIGN_TYPE[c.tipo]}`}>{tipoLabel[c.tipo]}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={`text-[10px] ${CAMPAIGN_STATUS[c.status]}`}>{statusLabel[c.status]}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-right tabular-nums text-sm">
+                            {c.total_enviados}/{c.total_destinatarios}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-right tabular-nums text-sm text-red-500">
+                            {c.total_erros || 0}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
+                              {(c.status === "rascunho" || c.status === "agendada") && (
+                                <Button
+                                  size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                  onClick={() => executeCampaign(c.id)}
+                                  disabled={!!sendingCampaign}
+                                >
+                                  <Send className="h-3 w-3" /><span className="hidden sm:inline">Enviar</span>
+                                </Button>
+                              )}
+                              {(c.status === "rascunho" || c.status === "agendada") && (
+                                <Button
+                                  size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                                  onClick={() => openEditCampaign(c)}
+                                  title="Editar campanha"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              )}
+                              {(c.status === "rascunho" || c.status === "agendada" || c.status === "cancelada") && (
+                                <Button
+                                  size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => deleteCampaign(c.id)}
+                                  title="Excluir campanha"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -1123,12 +1130,12 @@ export default function Automations() {
             <Separator />
             <div className="space-y-2">
               <Label>Agendamento (opcional)</Label>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <Input
                   type="datetime-local"
                   value={campaignForm.agendado_para}
                   onChange={e => setCampaignForm({ ...campaignForm, agendado_para: e.target.value })}
-                  className="w-auto"
+                  className="w-full sm:w-auto"
                 />
                 {campaignForm.agendado_para && (
                   <Button
@@ -1179,7 +1186,7 @@ export default function Automations() {
             <p className="text-sm text-muted-foreground">
               Cole sua lista de contatos abaixo. Aceita dois formatos:
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Card className="p-3">
                 <p className="text-xs font-semibold mb-1">Formato 1: Nome + Telefone</p>
                 <pre className="text-[11px] text-muted-foreground bg-secondary p-2 rounded">
