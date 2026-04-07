@@ -166,7 +166,12 @@ export default function Automations() {
       setTaxaEntrega(settings.taxa_entrega?.toString() || "0");
       setTempoEntrega(settings.tempo_entrega_min?.toString() || "45");
       setAreaEntrega(settings.area_entrega || "");
-      setFormasPagamento(settings.formas_pagamento || "");
+      // Se valor antigo é texto livre (não CSV), tratar como todos habilitados
+      const fp = settings.formas_pagamento || "";
+      const validKeys = ["pix", "credito", "debito", "dinheiro", "vale_refeicao"];
+      const parts = fp.split(",").map((s: string) => s.trim()).filter(Boolean);
+      const isStructured = parts.length > 0 && parts.every((p: string) => validKeys.includes(p));
+      setFormasPagamento(isStructured ? fp : "pix,credito,debito,dinheiro");
     }
 
     // Carrega perfil para a IA
@@ -797,16 +802,34 @@ export default function Automations() {
                 <CreditCard className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">Formas de pagamento</CardTitle>
               </div>
-              <CardDescription>A IA informa essas opções quando o cliente perguntar como pagar</CardDescription>
+              <CardDescription>Selecione as formas aceitas. Aparece no checkout e a IA informa automaticamente.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Textarea
-                value={formasPagamento}
-                onChange={e => setFormasPagamento(e.target.value)}
-                rows={3}
-                className="text-sm"
-                placeholder={"Ex: Pix (chave: 11999990000), Dinheiro (troco até R$50), Cartão na entrega (débito e crédito)"}
-              />
+              <div className="space-y-3">
+                {[
+                  { value: "pix", label: "PIX" },
+                  { value: "credito", label: "Cartão de crédito" },
+                  { value: "debito", label: "Cartão de débito" },
+                  { value: "dinheiro", label: "Dinheiro" },
+                  { value: "vale_refeicao", label: "Vale-refeição" },
+                ].map(opt => {
+                  const enabled = formasPagamento.split(",").map(s => s.trim()).filter(Boolean);
+                  const isChecked = enabled.includes(opt.value);
+                  return (
+                    <div key={opt.value} className="flex items-center justify-between">
+                      <Label className="text-sm">{opt.label}</Label>
+                      <Switch
+                        checked={isChecked}
+                        onCheckedChange={v => {
+                          const current = formasPagamento.split(",").map(s => s.trim()).filter(Boolean);
+                          const next = v ? [...current, opt.value] : current.filter(x => x !== opt.value);
+                          setFormasPagamento(next.join(","));
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 
@@ -1178,7 +1201,7 @@ export default function Automations() {
 
       {/* ── Campaign Dialog ──────────────────────────────────────────────── */}
       <Dialog open={campaignDialog} onOpenChange={setCampaignDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingCampaign ? "Editar campanha" : "Nova campanha"}</DialogTitle>
           </DialogHeader>
@@ -1282,18 +1305,18 @@ export default function Automations() {
               Máximo 50 destinatários por campanha. Intervalo de 60s entre envios.
             </p>
           </div>
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => setCampaignDialog(false)}>Cancelar</Button>
-            <Button variant="outline" onClick={() => saveCampaign(false)}>Salvar rascunho</Button>
+          <DialogFooter>
             {campaignForm.agendado_para ? (
-              <Button className="bg-blue-500 hover:bg-blue-600 gap-1.5" onClick={() => saveCampaign(false)}>
+              <Button className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 gap-1.5" onClick={() => saveCampaign(false)}>
                 <Calendar className="h-4 w-4" />Agendar
               </Button>
             ) : (
-              <Button className="bg-primary hover:bg-primary/90 gap-1.5" onClick={() => saveCampaign(true)}>
-                <Send className="h-4 w-4" />Enviar agora
+              <Button className="w-full sm:w-auto bg-primary hover:bg-primary/90 gap-1.5" onClick={() => saveCampaign(true)}>
+                <Send className="h-4 w-4" /><span className="hidden sm:inline">Enviar agora</span><span className="sm:hidden">Enviar</span>
               </Button>
             )}
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => saveCampaign(false)}>Salvar rascunho</Button>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setCampaignDialog(false)}>Cancelar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

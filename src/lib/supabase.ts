@@ -170,6 +170,7 @@ export interface AutomationSettings {
   taxa_entrega: number | null;
   area_entrega: string | null;
   tempo_entrega_min: number | null;
+  formas_pagamento: string | null;
   followup_ativo: boolean;
   followup_delay_min: number | null;
   followup_max: number | null;

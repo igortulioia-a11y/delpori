@@ -32,16 +32,17 @@ export async function GET(request: Request) {
 
   const { data: settings } = await supabaseAdmin
     .from("automation_settings")
-    .select("whatsapp_phone, whatsapp_status, taxa_entrega")
+    .select("whatsapp_phone, whatsapp_status, taxa_entrega, formas_pagamento")
     .eq("user_id", profile.id)
     .single();
 
   if (!settings?.whatsapp_phone || settings.whatsapp_status !== "conectado") {
-    return NextResponse.json({ phone: null, taxa_entrega: null });
+    return NextResponse.json({ phone: null, taxa_entrega: null, formas_pagamento: null });
   }
 
   return NextResponse.json({
     phone: settings.whatsapp_phone,
     taxa_entrega: settings.taxa_entrega ? Number(settings.taxa_entrega) : null,
+    formas_pagamento: settings.formas_pagamento || null,
   });
 }

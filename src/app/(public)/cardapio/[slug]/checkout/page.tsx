@@ -39,6 +39,7 @@ function MenuCheckoutInner() {
   const [error, setError] = useState("");
   const [whatsappPhone, setWhatsappPhone] = useState<string | null>(null);
   const [defaultTaxaEntrega, setDefaultTaxaEntrega] = useState<number | null>(null);
+  const [enabledPayments, setEnabledPayments] = useState<string[]>([]);
 
   // Delivery zones
   const [zones, setZones] = useState<DeliveryZone[]>([]);
@@ -71,6 +72,9 @@ function MenuCheckoutInner() {
           const data = await res.json();
           setWhatsappPhone(data.phone);
           if (data.taxa_entrega != null) setDefaultTaxaEntrega(data.taxa_entrega);
+          if (data.formas_pagamento) {
+            setEnabledPayments(data.formas_pagamento.split(",").map((s: string) => s.trim()).filter(Boolean));
+          }
         }
       } catch { /* silencioso */ }
     }
@@ -103,12 +107,16 @@ function MenuCheckoutInner() {
   const hasValidDelivery = isPickup || zones.length === 0 || !!matchedZone;
   const finalTotal = totalPrice + deliveryFee;
 
-  const paymentOptions = [
+  const allPaymentOptions = [
     { label: "PIX", value: "pix" },
     { label: "Cartão de crédito", value: "credito" },
     { label: "Cartão de débito", value: "debito" },
     { label: "Dinheiro", value: "dinheiro" },
+    { label: "Vale-refeição", value: "vale_refeicao" },
   ];
+  const paymentOptions = enabledPayments.length > 0
+    ? allPaymentOptions.filter(o => enabledPayments.includes(o.value))
+    : allPaymentOptions.filter(o => o.value !== "vale_refeicao"); // fallback: 4 originais
 
   if (items.length === 0 && !confirmed) {
     return (
