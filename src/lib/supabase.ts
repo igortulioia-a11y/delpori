@@ -196,3 +196,13 @@ export interface DeliveryZone {
   ativo: boolean;
   criado_em: string;
 }
+
+export interface DailySpecial {
+  id: string;
+  user_id: string;
+  dia_semana: number; // 0=Dom, 1=Seg, ..., 6=Sab
+  product_id: string;
+  preco_promocional: number;
+  ativo: boolean;
+  criado_em: string;
+}

@@ -106,6 +106,15 @@ export default function Automations() {
   const [perfilTelCozinha, setPerfilTelCozinha] = useState("");
   const [perfilEndereco, setPerfilEndereco] = useState("");
 
+  // Promoção do Dia state
+  const diasSemana = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const [dailySpecials, setDailySpecials] = useState<{ dia_semana: number; product_id: string; preco_promocional: string; ativo: boolean }[]>(
+    Array.from({ length: 7 }, (_, i) => ({ dia_semana: i, product_id: "", preco_promocional: "", ativo: true }))
+  );
+  const [allProducts, setAllProducts] = useState<{ id: string; nome: string; preco: number }[]>([]);
+  const [savingDaily, setSavingDaily] = useState(false);
+  const [savedDaily, setSavedDaily] = useState(false);
+
   // FAQ state
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [faqDialog, setFaqDialog] = useState(false);
@@ -204,6 +213,27 @@ export default function Automations() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id);
     setCustomerCount(count ?? 0);
+
+    // Produtos (para dropdown do Promoção do Dia)
+    const { data: prodData } = await supabase
+      .from("products")
+      .select("id, nome, preco")
+      .eq("user_id", user.id)
+      .eq("disponivel", true)
+      .order("nome");
+    setAllProducts((prodData || []).map((p: any) => ({ id: p.id, nome: p.nome, preco: Number(p.preco) })));
+
+    // Promoção do Dia
+    const { data: dailyData } = await supabase
+      .from("daily_specials")
+      .select("dia_semana, product_id, preco_promocional, ativo")
+      .eq("user_id", user.id);
+    if (dailyData && dailyData.length > 0) {
+      setDailySpecials(prev => prev.map(row => {
+        const found = dailyData.find((d: any) => d.dia_semana === row.dia_semana);
+        return found ? { ...row, product_id: found.product_id, preco_promocional: String(found.preco_promocional), ativo: found.ativo } : row;
+      }));
+    }
 
     setLoading(false);
   }, [user?.id]);
@@ -789,6 +819,98 @@ export default function Automations() {
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
             {saving ? "Salvando..." : saved ? "Salvo!" : "Salvar configurações"}
           </Button>
+
+          {/* ── Promoção do Dia ─────────────────────────────────────────── */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2"><Sparkles className="h-5 w-5" />Promoção do Dia</CardTitle>
+              <CardDescription>Configure um produto em promoção para cada dia da semana. Aparece em destaque no cardápio e a IA informa automaticamente.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {diasSemana.map((dia, idx) => {
+                const row = dailySpecials[idx];
+                const selectedProduct = allProducts.find(p => p.id === row.product_id);
+                return (
+                  <div key={idx} className={`flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border ${!row.ativo && row.product_id ? "opacity-50" : ""}`}>
+                    <span className="text-sm font-medium w-20 shrink-0">{dia}</span>
+                    <Select
+                      value={row.product_id || "none"}
+                      onValueChange={v => {
+                        const pid = v === "none" ? "" : v;
+                        const prod = allProducts.find(p => p.id === pid);
+                        setDailySpecials(prev => prev.map((r, i) => i === idx ? {
+                          ...r,
+                          product_id: pid,
+                          preco_promocional: prod ? (Number(prod.preco) * 0.8).toFixed(2) : "",
+                        } : r));
+                      }}
+                    >
+                      <SelectTrigger className="flex-1 min-w-0 h-9 text-sm">
+                        <SelectValue placeholder="Selecione um produto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {allProducts.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.nome} — R$ {p.preco.toFixed(2).replace(".", ",")}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {row.product_id && (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">R$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className="w-24 h-9 text-sm"
+                            placeholder="Preço promo"
+                            value={row.preco_promocional}
+                            onChange={e => setDailySpecials(prev => prev.map((r, i) => i === idx ? { ...r, preco_promocional: e.target.value } : r))}
+                          />
+                        </div>
+                        {selectedProduct && (
+                          <span className="text-xs text-muted-foreground line-through whitespace-nowrap">R$ {selectedProduct.preco.toFixed(2).replace(".", ",")}</span>
+                        )}
+                        <Switch
+                          checked={row.ativo}
+                          onCheckedChange={v => setDailySpecials(prev => prev.map((r, i) => i === idx ? { ...r, ativo: v } : r))}
+                        />
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              <Button
+                className="w-full mt-2"
+                onClick={async () => {
+                  if (!user) return;
+                  setSavingDaily(true);
+                  for (const row of dailySpecials) {
+                    if (row.product_id) {
+                      await supabase.from("daily_specials").upsert({
+                        user_id: user.id,
+                        dia_semana: row.dia_semana,
+                        product_id: row.product_id,
+                        preco_promocional: parseFloat(row.preco_promocional) || 0,
+                        ativo: row.ativo,
+                      }, { onConflict: "user_id,dia_semana" });
+                    } else {
+                      await supabase.from("daily_specials").delete().eq("user_id", user.id).eq("dia_semana", row.dia_semana);
+                    }
+                  }
+                  setSavingDaily(false);
+                  setSavedDaily(true);
+                  setTimeout(() => setSavedDaily(false), 2000);
+                  toast({ title: "Promoção do dia salva!" });
+                }}
+                disabled={savingDaily}
+              >
+                {savingDaily ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : savedDaily ? <CheckCircle2 className="h-4 w-4 mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+                {savingDaily ? "Salvando..." : savedDaily ? "Salvo!" : "Salvar promoções"}
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* ── FAQ ──────────────────────────────────────────────────────── */}
           <Card className="shadow-sm">

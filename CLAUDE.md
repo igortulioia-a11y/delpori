@@ -1,6 +1,6 @@
-# DeliveryHub
+# Delpori
 
-> Atualizado em 06/04/2026 (v2).
+> Atualizado em 07/04/2026 (v3).
 
 ## Stack
 
@@ -11,7 +11,20 @@
 - **Buffer:** Redis (Upstash) para acumular msgs rapidas no WF1
 
 Projeto Supabase: `cxcsjxoslaxyiawynapv` (sa-east-1)
-Deploy: https://delivery-hub-seven.vercel.app
+
+---
+
+## Deploy
+
+- **Producao:** https://app.delpori.com (fallback: https://delpori.vercel.app)
+- **GitHub:** igortulioia-a11y/delpori (publico). Remote local: `delpori`
+- **Vercel:** projeto `delpori`, conectado ao GitHub, deploy automatico via push
+- **Regiao:** `gru1` (SP) em vercel.json — NUNCA mudar, Supabase esta em sa-east-1
+- **Dominio:** delpori.com na Hostinger. CNAME `app` → `cname.vercel-dns.com`
+
+```bash
+git push origin main  # deploy automatico
+```
 
 ---
 
@@ -26,7 +39,7 @@ WhatsApp → Evolution API → webhook-evolution (Edge Function v14)
   → WhatsApp cliente
 ```
 
-Edge Function: validacao, dedup, fromMe (pausa IA), horario, rate limiting anti-spam (>8 IA/5min → auto-pausa).
+Edge Function: validacao, dedup, fromMe (pausa IA), horario, rate limiting (>8 IA/5min → auto-pausa).
 
 ---
 
@@ -48,12 +61,12 @@ Edge Function: validacao, dedup, fromMe (pausa IA), horario, rate limiting anti-
 
 | Slug | Funcao |
 |------|--------|
-| webhook-evolution | Gateway central: valida, deduplica, salva msg, cria conversa, encaminha p/ n8n |
-| onboarding | Trigger auth.users INSERT: cria profile + settings + instancia Evolution |
+| webhook-evolution | Gateway: valida, deduplica, salva msg, cria conversa, encaminha n8n |
+| onboarding | Trigger auth.users INSERT: profile + settings + instancia Evolution |
 | get-whatsapp-qr | Gera QR code (validacao JWT manual) |
 | disconnect-whatsapp | Desconecta WA (validacao JWT manual) |
 | check-connection | pg_cron 1min: verifica status WA na Evolution |
-| cron-retomada | pg_cron 5min: reenvia msgs pendentes ao abrir |
+| cron-retomada | pg_cron 5min: reenvia msgs pendentes |
 | cron-campanhas | pg_cron 5min: processa campanhas agendadas |
 
 ---
@@ -61,7 +74,7 @@ Edge Function: validacao, dedup, fromMe (pausa IA), horario, rate limiting anti-
 ## Banco de Dados
 
 ### Tabelas
-- **profiles** — Restaurante (nome, slug, tipo, telefone_cozinha, descricao). PK = auth.users.id
+- **profiles** — Restaurante (nome, slug, tipo, telefone_cozinha, logo_url). PK = auth.users.id
 - **automation_settings** — Config IA (horario, instancia Evolution, status WA, follow-up). UNIQUE(user_id)
 - **system_config** — Config global (URLs Evolution, admin WA, dominio cardapio, webhook n8n)
 - **products** — Cardapio com categoria, imagem, disponivel, destaque
@@ -75,6 +88,9 @@ Edge Function: validacao, dedup, fromMe (pausa IA), horario, rate limiting anti-
 - **campaigns** — Campanhas em massa (rascunho/agendada/enviada)
 - **campaign_messages** — Msgs individuais de campanha
 - **team_members** — Membros com permissoes por aba
+- **faqs** — Perguntas frequentes por restaurante
+- **daily_specials** — Promoção do dia por dia da semana. UNIQUE(user_id, dia_semana). FK products CASCADE
+- **product_options** — Opcoes/complementos de produtos (estrutura pronta, sem uso ativo)
 - **n8n_chat_histories** — Memoria do agente IA (sessao delivery:{userId}:{tel})
 - **error_logs** — Logs de erro dos workflows
 
@@ -86,6 +102,9 @@ Edge Function: validacao, dedup, fromMe (pausa IA), horario, rate limiting anti-
 ### RLS
 Padrao: `auth.uid() = user_id`. Excecoes: profiles/products leitura publica, error_logs/chat_histories so service_role.
 
+### Storage
+Bucket `product-images` (publico). RLS INSERT exige path `{userId}/...`. Upload logo: `{userId}/logo.ext`.
+
 ---
 
 ## Frontend — Rotas
@@ -94,9 +113,9 @@ Padrao: `auth.uid() = user_id`. Excecoes: profiles/products leitura publica, err
 | Rota | Funcao |
 |------|--------|
 | / | KPIs, graficos, top 5 itens, resumo 7 dias |
-| /conversas | 3 colunas: lista + chat + detalhes (Sheet drawer em < xl). Toggle IA/Humano |
-| /pedidos | Kanban + tabela. Troca status. Detalhes em drawer |
-| /produtos | Grid cards. CRUD + upload imagem. Categorias. Toggle disponivel |
+| /conversas | Mobile: toggle lista/chat com botao voltar. Desktop: 3 colunas. Sheet detalhes < xl |
+| /pedidos | Kanban + tabela responsiva. Status via dropdown. Detalhes em Sheet |
+| /produtos | Grid responsivo. CRUD + upload imagem. Categorias. Edit/delete visivel no mobile |
 | /automacoes | Aba Atendimento (perfil IA, horario, entrega) + Aba Campanhas |
 | /configuracoes | Aba Restaurante + Aba WhatsApp (QR) + Aba Usuarios |
 
@@ -104,30 +123,55 @@ Padrao: `auth.uid() = user_id`. Excecoes: profiles/products leitura publica, err
 | Rota | Funcao |
 |------|--------|
 | /cardapio/[slug] | Cardapio digital. Carrinho React state. Busca + categorias |
-| /cardapio/[slug]/checkout | Checkout: dados entrega, zona, pagamento. POST /api/checkout |
+| /cardapio/[slug]/checkout | Checkout: dados entrega, zona, pagamento. Cria pedido via Supabase + link WA |
 | /login | Login + cadastro + recuperacao senha |
+| /reset-password | Solicitar reset de senha (envia email) |
+| /update-password | Definir nova senha (link do email) |
 
 ### API Routes
 | Rota | Funcao |
 |------|--------|
 | /api/send-whatsapp | Envia WhatsApp via Evolution (requer auth) |
-| /api/checkout | Checkout publico. Cria order + notifica cliente e cozinha |
+| /api/send-campaign-message | Envia msg individual de campanha via Evolution (requer auth) |
 | /api/invite-member | CRUD membros da equipe (requer auth) |
+| /api/restaurant-phone | Retorna telefone do restaurante por slug (publico) |
+| /api/import-menu | Importar cardapio do UaiRango (requer auth) |
 
 ---
 
-## Deploy e Infraestrutura
+## Infraestrutura Externa
 
-- **Vercel:** `vercel.json` com `regions: ["gru1"]` (SP). NUNCA mudar — Supabase esta em sa-east-1
 - **Evolution API:** https://consultoria-evolution-api.vprt3o.easypanel.host
-- **n8n:** https://n8n-v2-n8n.vprt3o.easypanel.host — usar skill `n8n-workflow-manager` para editar workflows
+- **n8n:** https://n8n-v2-n8n.vprt3o.easypanel.host — usar skill `n8n-workflow-manager`
 - **Redis:** Upstash (buffer mensagens WF1)
 - **OpenAI:** GPT-4o-mini + Whisper + Vision
 
 ---
 
-## Problemas Conhecidos e Cuidados
+## Convencoes de Codigo
 
-- **Front trava apos tempo**: Sessao Supabase expira (~1h), navegador cacheia pagina velha. Correcao aplicada: Cache-Control no-store no middleware + subscricoes estabilizadas. Se voltar a acontecer, investigar refresh de token no AuthContext.
-- **Prompt da IA (WF2)**: O prompt completo do agente IA esta no node "Montar Prompt com FAQs e Cardapio" do WF2. Cuidado ao editar — sempre ler o prompt inteiro antes de mudar.
-- **Vercel region**: Se o projeto for recriado no Vercel, a regiao volta pra iad1 (EUA). O `vercel.json` com `regions: ["gru1"]` previne isso em deploys normais.
+### Responsividade
+- Breakpoint mobile/desktop: `md` (768px) — consistente em todo o app
+- Breakpoint 3 colunas: `xl` (1280px) — conversas painel detalhes
+- Sidebar: `hidden md:flex` (desktop fixo) / drawer mobile com overlay
+- Padding paginas: `p-4 md:p-6`
+- Headers: `flex flex-col sm:flex-row sm:items-center justify-between gap-3`
+
+### Dark Mode
+- Cores de status/badges: sempre incluir variantes `dark:`
+- Padrao: `bg-{cor}-100 dark:bg-{cor}-900/50 text-{cor}-700 dark:text-{cor}-300`
+- Borders: `border-{cor}-200 dark:border-{cor}-800`
+- Status de pedidos/campanhas: definidos em `src/lib/status-colors.ts`
+
+### Componentes
+- Paginas dashboard: tudo inline (sem componentes separados por pagina)
+- Sheet (shadcn): usado para detalhes mobile em conversas e pedidos
+- Dialog (shadcn): usado para CRUD (produtos, categorias, campanhas)
+
+---
+
+## Cuidados
+
+- **Prompt IA (WF2):** Ler inteiro antes de editar. Node "Montar Prompt com FAQs e Cardapio" no WF2.
+- **Vercel region:** Se recriar projeto, regiao volta pra iad1 (EUA). vercel.json previne em deploys normais.
+- **Remote git:** `origin` = repo correto (`igortulioia-a11y/delpori`).

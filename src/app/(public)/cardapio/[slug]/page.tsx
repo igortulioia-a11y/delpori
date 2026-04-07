@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, UtensilsCrossed } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, UtensilsCrossed, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ function MenuDigitalInner() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [produtos, setProdutos] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<string[]>(["Todos"]);
+  const [dailySpecial, setDailySpecial] = useState<{ product_id: string; preco_promocional: number } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -78,6 +79,19 @@ function MenuDigitalInner() {
       const cats = ["Todos", ...new Set(prods.map(p => p.categoria).filter(Boolean))];
       setCategorias(cats);
 
+      // Prato do dia
+      const today = new Date().getDay();
+      const { data: specialData } = await supabase
+        .from("daily_specials")
+        .select("product_id, preco_promocional")
+        .eq("user_id", profileData.id)
+        .eq("dia_semana", today)
+        .eq("ativo", true)
+        .maybeSingle();
+      if (specialData) {
+        setDailySpecial({ product_id: specialData.product_id, preco_promocional: Number(specialData.preco_promocional) });
+      }
+
       setLoading(false);
     }
     loadData();
@@ -90,7 +104,9 @@ function MenuDigitalInner() {
   const getItemQty = (id: string) => items.find(i => i.product.id === id)?.quantity ?? 0;
 
   const handleAdd = (product: Product) => {
-    addItem(product);
+    const isSpecial = dailySpecial && product.id === dailySpecial.product_id;
+    const productToAdd = isSpecial ? { ...product, preco: dailySpecial.preco_promocional } : product;
+    addItem(productToAdd);
     setAddedId(product.id);
     setTimeout(() => setAddedId(null), 300);
   };
@@ -168,6 +184,54 @@ function MenuDigitalInner() {
 
       {/* Products */}
       <main className="max-w-lg mx-auto px-4 py-5 pb-28 space-y-4">
+        {/* Banner Prato do Dia */}
+        {dailySpecial && (() => {
+          const sp = produtos.find(p => p.id === dailySpecial.product_id);
+          if (!sp) return null;
+          const qty = getItemQty(sp.id);
+          return (
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 p-4 shadow-lg text-white">
+              <div className="flex gap-4 items-center">
+                {sp.imagem_url ? (
+                  <img src={sp.imagem_url} alt={sp.nome} className="w-20 h-20 rounded-xl object-cover shadow-md" />
+                ) : (
+                  <div className="w-20 h-20 rounded-xl bg-white/20 flex items-center justify-center">
+                    <UtensilsCrossed className="h-8 w-8 text-white/70" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Sparkles className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Promoção do Dia</span>
+                  </div>
+                  <h3 className="font-extrabold text-base leading-tight">{sp.nome}</h3>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-white/70 line-through text-sm">R$ {sp.preco.toFixed(2).replace(".", ",")}</span>
+                    <span className="font-extrabold text-lg">R$ {dailySpecial.preco_promocional.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3">
+                {qty === 0 ? (
+                  <Button size="sm" variant="secondary" className="w-full h-9 rounded-full font-bold text-xs" onClick={() => handleAdd(sp)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar ao carrinho
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-center gap-3 bg-white/20 rounded-full py-1 px-2">
+                    <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-white hover:bg-white/20" onClick={() => updateQuantity(sp.id, qty - 1)}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <span className="text-sm font-bold w-5 text-center">{qty}</span>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-white hover:bg-white/20" onClick={() => handleAdd(sp)}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground text-sm">
             Nenhum produto encontrado
@@ -176,10 +240,11 @@ function MenuDigitalInner() {
         {filtered.map(product => {
           const quantity = getItemQty(product.id);
           const isAdding = addedId === product.id;
+          const isSpecial = dailySpecial?.product_id === product.id;
           return (
             <div
               key={product.id}
-              className={`flex gap-4 bg-card rounded-2xl border p-3 shadow-sm hover:shadow-md transition-all duration-200 ${isAdding ? "scale-[1.02]" : ""}`}
+              className={`flex gap-4 bg-card rounded-2xl border p-3 shadow-sm hover:shadow-md transition-all duration-200 ${isAdding ? "scale-[1.02]" : ""} ${isSpecial ? "ring-2 ring-orange-400/50" : ""}`}
             >
               <div className="relative shrink-0">
                 {product.imagem_url ? (
@@ -194,9 +259,15 @@ function MenuDigitalInner() {
                     <UtensilsCrossed className="h-8 w-8 text-primary/40" />
                   </div>
                 )}
-                <Badge variant="secondary" className="absolute -top-1.5 -left-1.5 text-[10px] px-1.5 py-0.5 shadow-sm">
-                  {product.categoria}
-                </Badge>
+                {isSpecial ? (
+                  <Badge className="absolute -top-1.5 -left-1.5 text-[10px] px-1.5 py-0.5 shadow-sm bg-orange-500 hover:bg-orange-500 text-white">
+                    <Sparkles className="h-3 w-3 mr-0.5" />Promo
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="absolute -top-1.5 -left-1.5 text-[10px] px-1.5 py-0.5 shadow-sm">
+                    {product.categoria}
+                  </Badge>
+                )}
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
@@ -204,9 +275,16 @@ function MenuDigitalInner() {
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{product.descricao}</p>
                 </div>
                 <div className="flex items-center justify-between mt-2">
-                  <span className="font-extrabold text-base text-primary">
-                    R$ {product.preco.toFixed(2).replace(".", ",")}
-                  </span>
+                  {isSpecial ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground line-through">R$ {product.preco.toFixed(2).replace(".", ",")}</span>
+                      <span className="font-extrabold text-base text-orange-500">R$ {dailySpecial.preco_promocional.toFixed(2).replace(".", ",")}</span>
+                    </div>
+                  ) : (
+                    <span className="font-extrabold text-base text-primary">
+                      R$ {product.preco.toFixed(2).replace(".", ",")}
+                    </span>
+                  )}
                   {quantity === 0 ? (
                     <Button
                       size="sm"
