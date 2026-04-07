@@ -250,11 +250,11 @@ function MenuDigitalInner() {
                   <span className="text-base">R$ {totalPrice.toFixed(2).replace(".", ",")}</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
+              <SheetContent side="bottom" className="max-h-[75vh] rounded-t-3xl flex flex-col">
                 <SheetHeader>
                   <SheetTitle className="text-lg">Seu Carrinho</SheetTitle>
                 </SheetHeader>
-                <ScrollArea className="flex-1 mt-4 pr-2" style={{ height: "calc(85vh - 200px)" }}>
+                <ScrollArea className="flex-1 min-h-0 mt-4 pr-2">
                   <div className="space-y-4">
                     {items.map(item => (
                       <div key={item.product.id} className="space-y-2">
@@ -300,7 +300,7 @@ function MenuDigitalInner() {
                     ))}
                   </div>
                 </ScrollArea>
-                <div className="border-t pt-4 mt-3 space-y-3">
+                <div className="border-t pt-4 mt-3 pb-6 space-y-3 shrink-0">
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Subtotal</span>
                     <span>R$ {totalPrice.toFixed(2).replace(".", ",")}</span>
