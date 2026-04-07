@@ -85,16 +85,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel – branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-orange-500 to-orange-600 text-white flex-col items-center justify-center p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex-col items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-white/10 blur-2xl" />
         <div className="relative z-10 max-w-md text-center space-y-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm shadow-xl">
-            <UtensilsCrossed className="w-10 h-10 text-white" />
-          </div>
+          <img src="/logo-icon.svg" alt="Delpori" className="h-16 w-16 mx-auto drop-shadow-lg" />
           <div>
-            <h1 className="text-4xl font-bold tracking-tight">DeliveryHub</h1>
-            <p className="mt-3 text-lg text-orange-100">CRM inteligente para seu delivery</p>
+            <h1 className="text-4xl font-bold tracking-tight">Delpori</h1>
+            <p className="mt-3 text-lg text-slate-300">CRM inteligente para seu delivery</p>
           </div>
           <div className="grid grid-cols-1 gap-4 text-left">
             {[
@@ -102,11 +100,11 @@ export default function LoginPage() {
               { emoji: '📊', title: 'Dashboard completo', desc: 'Métricas de vendas, pedidos e conversas em tempo real' },
               { emoji: '🍔', title: 'Cardápio digital', desc: 'Link de cardápio para seus clientes pedirem direto' },
             ].map((item) => (
-              <div key={item.title} className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div key={item.title} className="flex items-start gap-3 bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/5">
                 <span className="text-2xl">{item.emoji}</span>
                 <div>
                   <p className="font-semibold text-sm">{item.title}</p>
-                  <p className="text-xs text-orange-100 mt-0.5">{item.desc}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -119,10 +117,10 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center gap-3 mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-orange-500 shadow-lg">
-              <UtensilsCrossed className="w-7 h-7 text-white" />
+            <div className="bg-primary shadow-lg rounded-2xl p-3">
+              <img src="/logo-icon.svg" alt="Delpori" className="h-10 w-10 drop-shadow-md" />
             </div>
-            <h1 className="text-2xl font-bold">DeliveryHub</h1>
+            <h1 className="text-2xl font-bold">Delpori</h1>
           </div>
 
           <div>
@@ -189,7 +187,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => { setMode('forgot'); setError(''); setSuccess('') }}
-                      className="text-xs text-orange-500 hover:text-orange-600 font-medium"
+                      className="text-xs text-primary hover:text-primary font-medium"
                     >
                       Esqueceu a senha?
                     </button>
@@ -238,7 +236,7 @@ export default function LoginPage() {
             {/* Botão */}
             <Button
               type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold h-11"
+              className="w-full bg-primary hover:bg-primary/90 text-white font-semibold h-11"
               disabled={loading}
             >
               {loading ? (
@@ -257,14 +255,14 @@ export default function LoginPage() {
               {mode === 'login' ? (
                 <>Ainda não tem conta?{' '}
                   <button onClick={() => { setMode('register'); setError(''); setSuccess('') }}
-                    className="text-orange-500 hover:text-orange-600 font-medium">
+                    className="text-primary hover:text-primary font-medium">
                     Criar agora
                   </button>
                 </>
               ) : (
                 <>Já tem conta?{' '}
                   <button onClick={() => { setMode('login'); setError(''); setSuccess('') }}
-                    className="text-orange-500 hover:text-orange-600 font-medium">
+                    className="text-primary hover:text-primary font-medium">
                     Entrar
                   </button>
                 </>

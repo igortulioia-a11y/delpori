@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase, type Faq } from "@/lib/supabase";
+import { CAMPAIGN_STATUS, CAMPAIGN_TYPE } from "@/lib/status-colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -56,26 +57,12 @@ const estabelecimentoLabel: Record<string, string> = {
   brasileira: "Brasileira", outro: "Outro",
 };
 
-const tipoColor: Record<string, string> = {
-  promocao: "bg-orange-100 text-orange-700",
-  cupom: "bg-emerald-100 text-emerald-700",
-  aviso: "bg-blue-100 text-blue-700",
-};
-
 const statusLabel: Record<string, string> = {
   rascunho: "Rascunho",
   agendada: "Agendada",
   enviando: "Enviando...",
   enviada: "Enviada",
   cancelada: "Cancelada",
-};
-
-const statusColor: Record<string, string> = {
-  rascunho: "bg-secondary text-muted-foreground",
-  agendada: "bg-blue-100 text-blue-700",
-  enviando: "bg-amber-100 text-amber-700",
-  enviada: "bg-emerald-100 text-emerald-700",
-  cancelada: "bg-red-100 text-red-700",
 };
 
 const filtroLabels: Record<string, string> = {
@@ -539,7 +526,7 @@ export default function Automations() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -659,7 +646,7 @@ export default function Automations() {
                 <p className="text-[11px] text-muted-foreground">A IA informa este endereço quando o cliente perguntar.</p>
               </div>
               <Button
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
+                className="w-full bg-primary hover:bg-primary/90 text-white gap-1.5"
                 onClick={handleSavePerfil}
                 disabled={savingPerfil}
               >
@@ -788,7 +775,7 @@ export default function Automations() {
 
           {/* Save */}
           <Button
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
+            className="w-full bg-primary hover:bg-primary/90 text-white gap-1.5"
             onClick={handleSave}
             disabled={saving}
           >
@@ -803,7 +790,7 @@ export default function Automations() {
                 <CardTitle className="text-lg flex items-center gap-2"><HelpCircle className="h-5 w-5" />Perguntas Frequentes</CardTitle>
                 <CardDescription>A IA usa estas respostas automaticamente quando o cliente pergunta</CardDescription>
               </div>
-              <Button size="sm" className="bg-orange-500 hover:bg-orange-600 gap-1.5" onClick={() => {
+              <Button size="sm" className="bg-primary hover:bg-primary/90 gap-1.5" onClick={() => {
                 setEditingFaq(null);
                 setFaqForm({ pergunta: "", resposta: "" });
                 setFaqDialog(true);
@@ -888,11 +875,11 @@ export default function Automations() {
             {(["promocao", "cupom", "aviso"] as const).map(tipo => (
               <Card
                 key={tipo}
-                className="shadow-sm cursor-pointer hover:shadow-md transition-shadow border-2 border-transparent hover:border-orange-200"
+                className="shadow-sm cursor-pointer hover:shadow-md transition-shadow border-2 border-transparent hover:border-primary/20"
                 onClick={() => openNewCampaign(tipo)}
               >
                 <CardContent className="p-4 text-center">
-                  <Badge className={`${tipoColor[tipo]} mb-2`}>{tipoLabel[tipo]}</Badge>
+                  <Badge className={`${CAMPAIGN_TYPE[tipo]} mb-2`}>{tipoLabel[tipo]}</Badge>
                   <p className="text-xs text-muted-foreground mt-1">
                     {tipo === "promocao" && "Divulgue ofertas e promoções"}
                     {tipo === "cupom" && "Envie cupons de desconto"}
@@ -939,10 +926,10 @@ export default function Automations() {
                           </p>
                         </TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${tipoColor[c.tipo]}`}>{tipoLabel[c.tipo]}</Badge>
+                          <Badge className={`text-[10px] ${CAMPAIGN_TYPE[c.tipo]}`}>{tipoLabel[c.tipo]}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={`text-[10px] ${statusColor[c.status]}`}>{statusLabel[c.status]}</Badge>
+                          <Badge className={`text-[10px] ${CAMPAIGN_STATUS[c.status]}`}>{statusLabel[c.status]}</Badge>
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-sm">
                           {c.total_enviados}/{c.total_destinatarios}
@@ -1020,7 +1007,7 @@ export default function Automations() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setFaqDialog(false)}>Cancelar</Button>
             <Button
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-primary hover:bg-primary/90"
               disabled={savingFaq || !faqForm.pergunta.trim() || !faqForm.resposta.trim()}
               onClick={async () => {
                 if (!user) return;
@@ -1167,7 +1154,7 @@ export default function Automations() {
                 <Calendar className="h-4 w-4" />Agendar
               </Button>
             ) : (
-              <Button className="bg-orange-500 hover:bg-orange-600 gap-1.5" onClick={() => saveCampaign(true)}>
+              <Button className="bg-primary hover:bg-primary/90 gap-1.5" onClick={() => saveCampaign(true)}>
                 <Send className="h-4 w-4" />Enviar agora
               </Button>
             )}
@@ -1254,7 +1241,7 @@ Pedro Costa, 31977665544`}
           <DialogFooter>
             <Button variant="outline" onClick={() => { setImportDialog(false); setImportText(""); }}>Cancelar</Button>
             <Button
-              className="bg-orange-500 hover:bg-orange-600 gap-1.5"
+              className="bg-primary hover:bg-primary/90 gap-1.5"
               onClick={importLeads}
               disabled={importing || !importText.trim()}
             >

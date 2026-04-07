@@ -178,7 +178,7 @@ export function ImportMenuDialog({ open, onOpenChange, onImportComplete }: Impor
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5 text-orange-500" />
+            <Download className="h-5 w-5 text-primary" />
             Importar Cardápio do UaiRango
           </DialogTitle>
         </DialogHeader>
@@ -220,7 +220,7 @@ export function ImportMenuDialog({ open, onOpenChange, onImportComplete }: Impor
         {/* ─── Step: Loading ─── */}
         {step === "loading" && (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Buscando cardápio do UaiRango...</p>
           </div>
         )}
@@ -311,7 +311,7 @@ export function ImportMenuDialog({ open, onOpenChange, onImportComplete }: Impor
         {/* ─── Step: Importing ─── */}
         {step === "importing" && (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Importando produtos e imagens...</p>
             <Progress value={progress} className="w-64 h-2" />
             <span className="text-xs text-muted-foreground">{progress}%</span>

@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, MessageCircle } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, MessageCircle, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -103,7 +103,7 @@ function MenuDigitalInner() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -190,10 +190,8 @@ function MenuDigitalInner() {
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-28 h-28 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
-                    <span className="text-3xl">
-                      {product.categoria === "Bebidas" ? "\ud83e\uddca" : product.categoria === "Pizzas" ? "\ud83c\udf55" : product.categoria === "Lanches" ? "\ud83c\udf54" : "\ud83c\udf7d\ufe0f"}
-                    </span>
+                  <div className="w-28 h-28 rounded-xl bg-primary/5 flex items-center justify-center">
+                    <UtensilsCrossed className="h-8 w-8 text-primary/40" />
                   </div>
                 )}
                 <Badge variant="secondary" className="absolute -top-1.5 -left-1.5 text-[10px] px-1.5 py-0.5 shadow-sm">
@@ -277,8 +275,8 @@ function MenuDigitalInner() {
                           {item.product.imagem_url ? (
                             <img src={item.product.imagem_url} alt={item.product.nome} className="w-18 h-18 rounded-xl object-cover" />
                           ) : (
-                            <div className="w-18 h-18 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center shrink-0">
-                              <span className="text-2xl">{"\ud83c\udf7d\ufe0f"}</span>
+                            <div className="w-18 h-18 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+                              <UtensilsCrossed className="h-8 w-8 text-primary/40" />
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
@@ -342,7 +340,7 @@ function MenuDigitalInner() {
 
 export default function MenuDigital() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-orange-500" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
       <MenuDigitalInner />
     </Suspense>
   );

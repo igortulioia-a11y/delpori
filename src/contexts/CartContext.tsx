@@ -28,7 +28,7 @@ interface CartContextType {
   totalPrice: number;
 }
 
-const CART_STORAGE_KEY = "deliveryhub-cart";
+const CART_STORAGE_KEY = "delpori-cart";
 
 const CartContext = createContext<CartContextType | null>(null);
 

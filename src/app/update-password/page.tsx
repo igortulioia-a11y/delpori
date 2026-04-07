@@ -61,7 +61,7 @@ export default function UpdatePasswordPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="text-center space-y-3">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
           <p className="text-sm text-muted-foreground">Verificando link...</p>
         </div>
       </div>
