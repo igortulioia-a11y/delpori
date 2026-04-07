@@ -79,33 +79,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     initSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      try {
-        setSession(prev => {
-          if (prev?.access_token === newSession?.access_token) return prev;
-          return newSession;
-        });
-        setUser(prev => {
-          const newUser = newSession?.user ?? null;
-          if (prev?.id === newUser?.id) return prev;
-          return newUser;
-        });
-        if (newSession?.user) {
-          // Sem await — nao bloqueia a UI durante refresh de token
-          loadProfile(newSession.user.id);
-          loadTeamRole(newSession.user.id);
-        } else {
-          setProfile(null);
-          setTeamRole("owner");
-          setPermissoes([]);
+    let subscription: { unsubscribe: () => void } | null = null;
+    try {
+      const { data } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        try {
+          setSession(prev => {
+            if (prev?.access_token === newSession?.access_token) return prev;
+            return newSession;
+          });
+          setUser(prev => {
+            const newUser = newSession?.user ?? null;
+            if (prev?.id === newUser?.id) return prev;
+            return newUser;
+          });
+          if (newSession?.user) {
+            // Sem await — nao bloqueia a UI durante refresh de token
+            loadProfile(newSession.user.id);
+            loadTeamRole(newSession.user.id);
+          } else {
+            setProfile(null);
+            setTeamRole("owner");
+            setPermissoes([]);
+          }
+        } catch (err: any) {
+          if (!err?.message?.includes("Lock")) console.error("Auth state error:", err);
         }
-      } catch (err: any) {
-        if (!err?.message?.includes("Lock")) console.error("Auth state error:", err);
-      }
+        setIsLoading(false);
+      });
+      subscription = data.subscription;
+    } catch (err) {
+      // WebView restritivo pode falhar aqui — nao travar a app
+      console.error("Auth subscription failed:", err);
       setIsLoading(false);
-    });
+    }
 
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
