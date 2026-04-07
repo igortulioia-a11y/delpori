@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -64,10 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <UtensilsCrossed className="h-4 w-4" />
-            </div>
-            <span className="text-sm font-semibold">DeliveryHub</span>
+            <img src="/logo-icon.svg" alt="Delpori" className="h-7 w-7" />
           </div>
         </header>
 

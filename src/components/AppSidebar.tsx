@@ -41,17 +41,15 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
     <aside className="flex flex-col w-64 h-screen bg-sidebar border-r border-sidebar-border">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-sidebar-border shrink-0">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <UtensilsCrossed className="h-5 w-5" />
-        </div>
+        <img src="/logo-icon.svg" alt="Delpori" className="h-9 w-9" />
         <div className="flex flex-col flex-1 min-w-0">
-          <span className="text-sm font-semibold text-foreground">DeliveryHub</span>
-          <span className="text-xs text-muted-foreground">Gestão de Delivery</span>
+          <span className="text-sm font-semibold text-white">Delpori</span>
+          <span className="text-xs text-sidebar-foreground">Gestão de Delivery</span>
         </div>
         {/* Dark mode toggle no header */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          className="text-sidebar-foreground hover:text-white transition-colors shrink-0"
           title={theme === "dark" ? "Modo claro" : "Modo escuro"}
         >
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -70,7 +68,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  ? "bg-sidebar-accent text-white font-medium border-l-2 border-l-[hsl(var(--sidebar-primary))]"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/60"
               )}
             >
@@ -84,16 +82,20 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
       {/* Footer */}
       <div className="border-t border-sidebar-border p-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">
-            {initials}
-          </div>
+          {profile?.logo_url ? (
+            <img src={profile.logo_url} alt={displayName} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">
+              {initials}
+            </div>
+          )}
           <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-sm font-medium text-foreground truncate">{displayName}</span>
-            <span className="text-xs text-muted-foreground truncate">{user?.email ?? ""}</span>
+            <span className="text-sm font-medium text-white truncate">{displayName}</span>
+            <span className="text-xs text-sidebar-foreground truncate">{user?.email ?? ""}</span>
           </div>
           <button
             onClick={logout}
-            className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+            className="text-sidebar-foreground hover:text-destructive transition-colors shrink-0"
             title="Sair"
           >
             <LogOut className="h-4 w-4" />

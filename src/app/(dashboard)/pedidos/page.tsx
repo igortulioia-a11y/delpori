@@ -9,15 +9,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
-  ClipboardList, Eye, Package, Truck, CheckCircle2, XCircle,
-  CircleDot, ChevronRight, ChevronLeft, Loader2, RefreshCw,
+  ClipboardList, Eye,
+  ChevronRight, ChevronLeft, Loader2, RefreshCw,
   ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { ORDER_STATUS, type OrderStatus } from "@/lib/status-colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
-type OrderStatus = "novo" | "confirmado" | "em_preparo" | "saiu_entrega" | "entregue" | "cancelado";
 type SortKey = "numero" | "customer_name" | "total" | "status" | "created_at";
 type SortDir = "asc" | "desc";
 
@@ -34,15 +34,6 @@ interface Order {
   items: { nome: string; qty: number; preco: number }[];
   created_at: string;
 }
-
-const statusConfig: Record<OrderStatus, { label: string; class: string; icon: React.ElementType }> = {
-  novo:          { label: "Novo",       class: "bg-violet-100 text-violet-800 border-violet-200", icon: CircleDot },
-  confirmado:    { label: "Confirmado", class: "bg-sky-100 text-sky-800 border-sky-200",         icon: CheckCircle2 },
-  em_preparo:    { label: "Em preparo", class: "bg-amber-100 text-amber-800 border-amber-200",   icon: Package },
-  saiu_entrega:  { label: "A caminho",  class: "bg-blue-100 text-blue-800 border-blue-200",      icon: Truck },
-  entregue:      { label: "Entregue",   class: "bg-emerald-100 text-emerald-800 border-emerald-200", icon: CheckCircle2 },
-  cancelado:     { label: "Cancelado",  class: "bg-red-100 text-red-800 border-red-200",         icon: XCircle },
-};
 
 const kanbanColumns: { key: OrderStatus; label: string }[] = [
   { key: "novo",         label: "Novos" },
@@ -169,7 +160,7 @@ export default function Orders() {
       toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
       loadOrders();
     } else {
-      toast({ title: "Status atualizado", description: `Pedido → ${statusConfig[newStatus]?.label}` });
+      toast({ title: "Status atualizado", description: `Pedido → ${ORDER_STATUS[newStatus]?.label}` });
     }
   };
 
@@ -213,14 +204,14 @@ export default function Orders() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-5 max-w-[1400px] mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-5 max-w-[1400px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pedidos</h1>
           <p className="text-sm text-muted-foreground">Gerencie todos os pedidos do seu delivery</p>
@@ -238,7 +229,7 @@ export default function Orders() {
         {kanbanColumns.map(col => {
           const colOrders = orders.filter(o => o.status === col.key).slice(0, 5);
           const totalCol = orders.filter(o => o.status === col.key).length;
-          const config = statusConfig[col.key];
+          const config = ORDER_STATUS[col.key];
           return (
             <div key={col.key} className="space-y-2">
               <div className="flex items-center gap-2">
@@ -267,7 +258,7 @@ export default function Orders() {
                     {nextStatus[order.status] && (
                       <Button
                         size="sm" variant="ghost"
-                        className="h-6 px-1.5 ml-2 shrink-0 text-muted-foreground hover:text-foreground"
+                        className="h-6 px-1.5 ml-2 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                         onClick={() => changeStatus(order.id, nextStatus[order.status]!)}
                       >
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -278,7 +269,7 @@ export default function Orders() {
                 {totalCol > 5 && (
                   <button
                     onClick={() => { setFiltroStatus(col.key); setPage(1); }}
-                    className="w-full text-center text-xs text-muted-foreground hover:text-orange-500 py-1 transition-colors"
+                    className="w-full text-center text-xs text-muted-foreground hover:text-primary py-1 transition-colors"
                   >
                     Ver todos ({totalCol})
                   </button>
@@ -291,9 +282,9 @@ export default function Orders() {
 
       {/* Tabela com ordenação e paginação */}
       <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <CardTitle className="text-base">
-            {filtroStatus === "Todos" ? "Todos os pedidos" : `Pedidos — ${statusConfig[filtroStatus as OrderStatus]?.label}`}
+            {filtroStatus === "Todos" ? "Todos os pedidos" : `Pedidos — ${ORDER_STATUS[filtroStatus as OrderStatus]?.label}`}
             <span className="ml-2 text-sm font-normal text-muted-foreground">({sortedFiltered.length})</span>
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -317,11 +308,11 @@ export default function Orders() {
               onClick={() => { setFiltroStatus(s); setPage(1); }}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
                 filtroStatus === s
-                  ? "bg-orange-500 text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "bg-secondary text-muted-foreground hover:bg-secondary/80"
               }`}
             >
-              {s === "Todos" ? "Todos" : statusConfig[s]?.label}
+              {s === "Todos" ? "Todos" : ORDER_STATUS[s]?.label}
               {s !== "Todos" && <span className="ml-1 opacity-70">({contadores[s] ?? 0})</span>}
             </button>
           ))}
@@ -331,6 +322,7 @@ export default function Orders() {
           {paginated.length === 0 ? (
             <div className="p-8 text-center text-sm text-muted-foreground">Nenhum pedido encontrado</div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -345,7 +337,7 @@ export default function Orders() {
               </TableHeader>
               <TableBody>
                 {paginated.map((order) => {
-                  const config = statusConfig[order.status];
+                  const config = ORDER_STATUS[order.status];
                   return (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium text-sm">#{order.numero}</TableCell>
@@ -356,7 +348,7 @@ export default function Orders() {
                       <TableCell className="tabular-nums text-sm">R$ {order.total.toFixed(2).replace(".", ",")}</TableCell>
                       <TableCell>
                         <Select value={order.status} onValueChange={(v) => changeStatus(order.id, v as OrderStatus)}>
-                          <SelectTrigger className="h-7 w-[130px] text-xs border-0 p-0 px-1">
+                          <SelectTrigger className="h-7 w-[110px] sm:w-[130px] text-xs border-0 p-0 px-1">
                             <Badge variant="outline" className={`${config.class} pointer-events-none text-xs`}>
                               {config.label}
                             </Badge>
@@ -364,8 +356,8 @@ export default function Orders() {
                           <SelectContent>
                             {allStatuses.map(s => (
                               <SelectItem key={s} value={s}>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[s].class}`}>
-                                  {statusConfig[s].label}
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ORDER_STATUS[s].class}`}>
+                                  {ORDER_STATUS[s].label}
                                 </span>
                               </SelectItem>
                             ))}
@@ -383,6 +375,7 @@ export default function Orders() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
 
           {/* Pagination */}
@@ -421,7 +414,7 @@ export default function Orders() {
 }
 
 function OrderDetailSheet({ order, onStatusChange }: { order: Order; onStatusChange: (id: string, status: OrderStatus) => void }) {
-  const config = statusConfig[order.status];
+  const config = ORDER_STATUS[order.status];
   const allStatuses: OrderStatus[] = ["novo", "confirmado", "em_preparo", "saiu_entrega", "entregue", "cancelado"];
   return (
     <Sheet>
@@ -483,7 +476,7 @@ function OrderDetailSheet({ order, onStatusChange }: { order: Order; onStatusCha
               <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {allStatuses.map(s => (
-                  <SelectItem key={s} value={s}>{statusConfig[s].label}</SelectItem>
+                  <SelectItem key={s} value={s}>{ORDER_STATUS[s].label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

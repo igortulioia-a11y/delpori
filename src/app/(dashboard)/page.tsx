@@ -10,7 +10,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  DollarSign, TrendingUp, PercentIcon, ShoppingBag, Loader2,
+  DollarSign, TrendingUp, PercentIcon, ShoppingBag, Loader2, Trophy,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -231,25 +231,25 @@ export default function Dashboard() {
       label: periodo === "Hoje" ? "Receita do dia" : `Receita (${periodo})`,
       value: `R$ ${kpis.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
       icon: DollarSign,
-      accent: "text-emerald-600",
+      iconBg: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400",
     },
     {
       label: "Ticket médio",
       value: `R$ ${kpis.ticketMedio.toFixed(2).replace(".", ",")}`,
       icon: TrendingUp,
-      accent: "text-blue-600",
+      iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400",
     },
     {
       label: "Taxa cancelamento",
       value: `${txCancelamento}%`,
       icon: PercentIcon,
-      accent: "text-red-600",
+      iconBg: "bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400",
     },
     {
       label: "Conversas abertas",
       value: openConversations.toString(),
       icon: ShoppingBag,
-      accent: "text-amber-600",
+      iconBg: "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400",
     },
   ];
 
@@ -258,7 +258,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -276,7 +276,9 @@ export default function Dashboard() {
               key={p}
               variant={periodo === p ? "default" : "outline"}
               size="sm"
-              className="rounded-full"
+              className={periodo === p
+                ? "rounded-full bg-primary text-primary-foreground"
+                : "rounded-full bg-card text-muted-foreground border"}
               onClick={() => setPeriodo(p)}
             >
               {p}
@@ -288,14 +290,14 @@ export default function Dashboard() {
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {finKpis.map(kpi => (
-          <Card key={kpi.label} className="shadow-sm">
-            <CardContent className="p-5">
+          <Card key={kpi.label} className="shadow-sm hover:shadow-md transition-all duration-200">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">{kpi.label}</p>
                   <p className="text-2xl font-bold mt-1 tabular-nums">{kpi.value}</p>
                 </div>
-                <div className={`h-10 w-10 rounded-lg bg-secondary flex items-center justify-center ${kpi.accent}`}>
+                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${kpi.iconBg}`}>
                   <kpi.icon className="h-5 w-5" />
                 </div>
               </div>
@@ -306,7 +308,7 @@ export default function Dashboard() {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="shadow-sm">
+        <Card className="shadow-sm hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium">
               {periodo === "Hoje" ? "Vendas de hoje" : periodo === "7 dias" ? "Vendas da semana" : "Vendas do mês"}
@@ -324,14 +326,14 @@ export default function Dashboard() {
                   <XAxis dataKey="label" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => v >= 1000 ? `R$${v / 1000}k` : `R$${v}`} />
                   <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR")}`, "Vendas"]} contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", fontSize: 13 }} />
-                  <Line type="monotone" dataKey="vendas" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ r: 4, fill: "hsl(var(--primary))" }} />
+                  <Line type="monotone" dataKey="vendas" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: "hsl(var(--primary))" }} />
                 </LineChart>
               </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium">Pedidos por período</CardTitle>
           </CardHeader>
@@ -391,7 +393,7 @@ export default function Dashboard() {
 
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">🏆 Itens mais vendidos</CardTitle>
+            <CardTitle className="text-base font-medium"><Trophy className="h-4 w-4 inline mr-1.5 text-amber-500" /> Itens mais vendidos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {topItems.length === 0 ? (

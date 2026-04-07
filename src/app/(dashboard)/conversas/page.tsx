@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Search, Send, Tag, Plus, X, UtensilsCrossed, Loader2, RefreshCw,
-  Bot, UserRound, Phone, ExternalLink, ShoppingBag, MessageCircle,
-  Clock, MapPin, Calendar, Sparkles, ChevronRight, PanelRightOpen,
+  Bot, UserRound, Phone, ExternalLink, MessageCircle,
+  Clock, MapPin, Calendar, Sparkles, ChevronRight, PanelRightOpen, ArrowLeft,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -61,14 +61,14 @@ interface MessageRow {
 
 
 const avatarColors = [
-  { bg: "bg-orange-100", text: "text-orange-700" },
-  { bg: "bg-blue-100", text: "text-blue-700" },
-  { bg: "bg-emerald-100", text: "text-emerald-700" },
-  { bg: "bg-violet-100", text: "text-violet-700" },
-  { bg: "bg-rose-100", text: "text-rose-700" },
-  { bg: "bg-cyan-100", text: "text-cyan-700" },
-  { bg: "bg-amber-100", text: "text-amber-700" },
-  { bg: "bg-indigo-100", text: "text-indigo-700" },
+  { bg: "bg-primary/10", text: "text-primary" },
+  { bg: "bg-blue-100 dark:bg-blue-900/50", text: "text-blue-700 dark:text-blue-300" },
+  { bg: "bg-emerald-100 dark:bg-emerald-900/50", text: "text-emerald-700 dark:text-emerald-300" },
+  { bg: "bg-violet-100 dark:bg-violet-900/50", text: "text-violet-700 dark:text-violet-300" },
+  { bg: "bg-rose-100 dark:bg-rose-900/50", text: "text-rose-700 dark:text-rose-300" },
+  { bg: "bg-cyan-100 dark:bg-cyan-900/50", text: "text-cyan-700 dark:text-cyan-300" },
+  { bg: "bg-amber-100 dark:bg-amber-900/50", text: "text-amber-700 dark:text-amber-300" },
+  { bg: "bg-indigo-100 dark:bg-indigo-900/50", text: "text-indigo-700 dark:text-indigo-300" },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -223,7 +223,9 @@ export default function Conversations() {
       }));
       setConversations(mapped);
       if (!hasAutoSelected.current && mapped.length > 0) {
-        setSelectedId(mapped[0].id);
+        if (window.innerWidth >= 768) {
+          setSelectedId(mapped[0].id);
+        }
         hasAutoSelected.current = true;
       }
     }
@@ -467,7 +469,7 @@ export default function Conversations() {
   if (loadingConvs) {
     return (
       <div className="flex h-[calc(100vh-3.5rem)]">
-        <div className="w-80 border-r p-3 space-y-3">
+        <div className="w-full md:w-80 border-r p-3 space-y-3">
           <Skeleton className="h-9 w-full rounded-lg" />
           <div className="flex gap-1.5">
             {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-7 w-16 rounded-full" />)}
@@ -482,8 +484,8 @@ export default function Conversations() {
             </div>
           ))}
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <div className="hidden md:flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     );
@@ -494,8 +496,8 @@ export default function Conversations() {
   if (conversations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)] text-center px-6">
-        <div className="h-20 w-20 rounded-full bg-orange-100 flex items-center justify-center mb-6">
-          <MessageCircle className="h-10 w-10 text-orange-500" />
+        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+          <MessageCircle className="h-10 w-10 text-primary" />
         </div>
         <h2 className="text-xl font-semibold mb-2">Nenhuma conversa ainda</h2>
         <p className="text-muted-foreground text-sm max-w-sm">
@@ -511,7 +513,7 @@ export default function Conversations() {
     <div className="flex h-[calc(100vh-3.5rem)]">
 
       {/* ═══ LEFT PANEL — Conversation List ═══ */}
-      <div className="w-96 border-r flex flex-col shrink-0 bg-card">
+      <div className={`w-full md:w-96 border-r flex-col shrink-0 bg-card ${selectedId ? "hidden md:flex" : "flex"}`}>
         {/* Search + Refresh */}
         <div className="p-3 pb-0">
           <div className="flex gap-1.5">
@@ -519,12 +521,12 @@ export default function Conversations() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar conversa..."
-                className="pl-9 h-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-orange-300"
+                className="pl-9 h-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground" onClick={loadConversations}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground transition-colors" onClick={loadConversations}>
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -542,7 +544,7 @@ export default function Conversations() {
               onClick={() => setActiveFilter(f.key)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 flex items-center gap-1 ${
                 activeFilter === f.key
-                  ? "bg-orange-500 text-white shadow-sm"
+                  ? "bg-primary text-white shadow-sm"
                   : "bg-secondary text-muted-foreground hover:bg-secondary/80"
               }`}
             >
@@ -571,7 +573,7 @@ export default function Conversations() {
                     onClick={() => setSelectedId(c.id)}
                     className={`w-full text-left px-3 py-3 flex gap-3 transition-all duration-150 relative ${
                       isSelected
-                        ? "bg-orange-50/70 border-l-[3px] border-l-orange-500"
+                        ? "bg-primary/5 border-l-[3px] border-l-primary"
                         : "hover:bg-secondary/50 border-l-[3px] border-l-transparent"
                     }`}
                   >
@@ -588,7 +590,7 @@ export default function Conversations() {
                             {formatTime(c.atualizado_em)}
                           </span>
                           {c.nao_lidas > 0 && (
-                            <span className="h-5 min-w-5 px-1 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center">
+                            <span className="h-5 min-w-5 px-1 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
                               {c.nao_lidas}
                             </span>
                           )}
@@ -597,12 +599,12 @@ export default function Conversations() {
                       <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5 leading-relaxed">{c.lastMessage}</p>
                       <div className="flex items-center gap-1.5 mt-1.5">
                         {c.ai_paused ? (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
                             <UserRound className="h-2.5 w-2.5" />
                             Humano
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">
                             <Sparkles className="h-2.5 w-2.5" />
                             IA
                           </span>
@@ -618,7 +620,7 @@ export default function Conversations() {
       </div>
 
       {/* ═══ CENTER PANEL — Chat ═══ */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex-col min-w-0 ${selectedId ? "flex" : "hidden md:flex"}`}>
         {selected ? (
           <>
             {/* Chat Header */}
@@ -626,6 +628,12 @@ export default function Conversations() {
               {/* Row 1: Identity */}
               <div className="px-4 pt-3 pb-2 flex items-center justify-between">
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedId(null)}
+                    className="md:hidden p-1 -ml-1 rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
                   <Avatar className="h-11 w-11">
                     <AvatarFallback className={`text-sm font-semibold ${getAvatarColor(selected.customers?.nome || selected.cliente_nome || "?").bg} ${getAvatarColor(selected.customers?.nome || selected.cliente_nome || "?").text}`}>
                       {getInitials(selected.customers?.nome || selected.cliente_nome || "?")}
@@ -648,13 +656,13 @@ export default function Conversations() {
               <div className="px-4 pb-2.5 flex items-center gap-2">
                 {selected.ai_paused ? (
                   <div className="flex gap-1.5 items-center">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 flex items-center gap-1 shadow-sm">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 flex items-center gap-1 shadow-sm">
                       <UserRound className="h-3 w-3" />
                       Humano
                     </span>
                     <button
                       onClick={resumeAi}
-                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors flex items-center gap-1"
                     >
                       <Bot className="h-3 w-3" />
                       Retomar IA
@@ -662,7 +670,7 @@ export default function Conversations() {
                   </div>
                 ) : (
                   <div className="flex gap-1.5 items-center">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 flex items-center gap-1 shadow-sm">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 flex items-center gap-1 shadow-sm">
                       <Sparkles className="h-3 w-3" />
                       IA ativa
                     </span>
@@ -672,7 +680,7 @@ export default function Conversations() {
                         setConversations(prev => prev.map(c => c.id === selected.id ? { ...c, ai_paused: true } : c));
                         toast({ title: "IA pausada nesta conversa" });
                       }}
-                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors flex items-center gap-1"
                     >
                       <UserRound className="h-3 w-3" />
                       Assumir conversa
@@ -690,12 +698,12 @@ export default function Conversations() {
               <div className="space-y-1 p-4">
                 {loadingMsgs ? (
                   <div className="flex justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="h-14 w-14 rounded-full bg-orange-100 flex items-center justify-center mb-4">
-                      <MessageCircle className="h-7 w-7 text-orange-400" />
+                    <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                      <MessageCircle className="h-7 w-7 text-primary/60" />
                     </div>
                     <p className="text-sm font-medium text-muted-foreground">Nenhuma mensagem ainda</p>
                     <p className="text-xs text-muted-foreground/70 mt-1">As mensagens aparecerão aqui</p>
@@ -715,10 +723,10 @@ export default function Conversations() {
                           <div key={m.id} className={`flex ${m.remetente === "cliente" ? "justify-start" : "justify-end"}`}>
                             {m.remetente === "ia" && (
                               <div className="flex items-end gap-2 max-w-[75%] flex-row-reverse">
-                                <div className="h-7 w-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0 mb-1">
-                                  <Bot className="h-3.5 w-3.5 text-orange-600" />
+                                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-1">
+                                  <Bot className="h-3.5 w-3.5 text-primary" />
                                 </div>
-                                <div className="px-3.5 py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed bg-orange-500 text-white shadow-sm">
+                                <div className="px-3.5 py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed bg-primary text-white shadow-sm">
                                   <p style={{ whiteSpace: "pre-wrap" }}>{renderWhatsAppText(m.conteudo)}</p>
                                   <div className="flex items-center gap-1 mt-1">
                                     <span className="text-[9px] font-medium text-white/80 uppercase">IA</span>
@@ -735,7 +743,7 @@ export default function Conversations() {
                               </div>
                             )}
                             {m.remetente === "atendente" && (
-                              <div className="max-w-[75%] px-3.5 py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed bg-orange-500 text-white shadow-sm">
+                              <div className="max-w-[75%] px-3.5 py-2.5 rounded-2xl rounded-br-md text-sm leading-relaxed bg-primary text-white shadow-sm">
                                 <p style={{ whiteSpace: "pre-wrap" }}>{renderWhatsAppText(m.conteudo)}</p>
                                 <p className="text-xs mt-1 text-white/60">{formatTime(m.criado_em)}</p>
                               </div>
@@ -758,7 +766,7 @@ export default function Conversations() {
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="shrink-0 h-9 w-9 text-muted-foreground hover:text-orange-500 rounded-xl"
+                      className="shrink-0 h-9 w-9 text-muted-foreground hover:text-primary rounded-xl transition-colors"
                       onClick={sendCardapio}
                     >
                       <UtensilsCrossed className="h-4 w-4" />
@@ -778,7 +786,7 @@ export default function Conversations() {
                 <button
                   onClick={sendMessage}
                   disabled={sending || !msgInput.trim()}
-                  className="shrink-0 h-9 w-9 rounded-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white flex items-center justify-center transition-all duration-150"
+                  className="shrink-0 h-9 w-9 rounded-full bg-primary hover:bg-primary/90 disabled:bg-primary/40 text-white flex items-center justify-center transition-all duration-150"
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
@@ -801,7 +809,7 @@ export default function Conversations() {
         <div className="w-80 border-l shrink-0 bg-card overflow-y-auto hidden xl:block">
           {/* Customer Card */}
           <div className="p-5 text-center">
-            <Avatar className="h-16 w-16 mx-auto ring-2 ring-orange-200 ring-offset-2">
+            <Avatar className="h-16 w-16 mx-auto ring-2 ring-primary/20 ring-offset-2">
               <AvatarFallback className={`text-lg font-bold ${getAvatarColor(selected.customers?.nome || selected.cliente_nome || "?").bg} ${getAvatarColor(selected.customers?.nome || selected.cliente_nome || "?").text}`}>
                 {getInitials(selected.customers?.nome || selected.cliente_nome || "?")}
               </AvatarFallback>
@@ -812,7 +820,7 @@ export default function Conversations() {
                 href={`https://wa.me/${selected.customers.telefone.replace(/\D/g, "")}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors mt-1"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1"
               >
                 <Phone className="h-3 w-3" />
                 {formatPhone(selected.customers.telefone)}
@@ -836,31 +844,6 @@ export default function Conversations() {
             <div className="bg-card p-3 text-center">
               <p className="text-sm font-bold tabular-nums">{formatRelativeDate(selected.customers?.ultimo_pedido ?? null)}</p>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Último</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Quick Actions */}
-          <div className="p-4 space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Ações rápidas</h4>
-
-            <div className="grid grid-cols-2 gap-2">
-              {selected.customers?.telefone && (
-                <a
-                  href={`https://wa.me/${selected.customers.telefone.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  WhatsApp
-                </a>
-              )}
-              <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 transition-all">
-                <ShoppingBag className="h-3.5 w-3.5" />
-                Criar pedido
-              </button>
             </div>
           </div>
 
@@ -891,13 +874,13 @@ export default function Conversations() {
               <div className="flex items-center gap-2.5">
                 {selected.ai_paused ? (
                   <>
-                    <UserRound className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                    <p className="text-xs text-amber-700 font-medium">Atendimento humano</p>
+                    <UserRound className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                    <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">Atendimento humano</p>
                   </>
                 ) : (
                   <>
-                    <Bot className="h-3.5 w-3.5 text-violet-500 shrink-0" />
-                    <p className="text-xs text-violet-700 font-medium">IA respondendo</p>
+                    <Bot className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400 shrink-0" />
+                    <p className="text-xs text-violet-700 dark:text-violet-300 font-medium">IA respondendo</p>
                   </>
                 )}
               </div>
@@ -943,7 +926,7 @@ export default function Conversations() {
             </SheetHeader>
             {/* Customer Card */}
             <div className="p-5 pt-10 text-center">
-              <Avatar className="h-16 w-16 mx-auto ring-2 ring-orange-200 ring-offset-2">
+              <Avatar className="h-16 w-16 mx-auto ring-2 ring-primary/20 ring-offset-2">
                 <AvatarFallback className={`text-lg font-bold ${getAvatarColor(selected.customers?.nome || selected.cliente_nome || "?").bg} ${getAvatarColor(selected.customers?.nome || selected.cliente_nome || "?").text}`}>
                   {getInitials(selected.customers?.nome || selected.cliente_nome || "?")}
                 </AvatarFallback>
@@ -954,7 +937,7 @@ export default function Conversations() {
                   href={`https://wa.me/${selected.customers.telefone.replace(/\D/g, "")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors mt-1"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1"
                 >
                   <Phone className="h-3 w-3" />
                   {formatPhone(selected.customers.telefone)}
@@ -971,19 +954,6 @@ export default function Conversations() {
                 <div><p className="text-lg font-bold">{selected.customers.ultimo_pedido ? new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" }).format(-Math.round((Date.now() - new Date(selected.customers.ultimo_pedido).getTime()) / 86400000), "day") : "—"}</p><p className="text-[10px] text-muted-foreground uppercase">Último</p></div>
               </div>
             )}
-            <Separator />
-            {/* Quick Actions */}
-            <div className="p-4 space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Ações rápidas</h4>
-              <div className="flex gap-2">
-                <a href={`https://wa.me/${(selected.customers?.telefone || selected.cliente_tel || "").replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex-1 text-center py-2 px-3 rounded-lg border text-xs font-medium hover:bg-accent transition-colors flex items-center justify-center gap-1.5">
-                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                </a>
-                <button className="flex-1 text-center py-2 px-3 rounded-lg border text-xs font-medium hover:bg-accent transition-colors flex items-center justify-center gap-1.5">
-                  <ShoppingBag className="h-3.5 w-3.5" /> Criar pedido
-                </button>
-              </div>
-            </div>
             <Separator />
             {/* Observação */}
             <div className="p-4">

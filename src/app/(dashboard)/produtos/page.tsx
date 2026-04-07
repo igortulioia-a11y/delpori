@@ -195,24 +195,24 @@ export default function Products() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Cardápio</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie os itens do seu delivery</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
-            <Download className="h-4 w-4" /> Importar UaiRango
+            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Importar UaiRango</span><span className="sm:hidden">Importar</span>
           </Button>
           <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> Adicionar produto
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Adicionar produto</span><span className="sm:hidden">Adicionar</span>
           </Button>
         </div>
       </div>
@@ -234,7 +234,7 @@ export default function Products() {
         ))}
         <button
           onClick={() => setCatDialogOpen(true)}
-          className="px-2 py-1.5 rounded-full text-xs font-medium bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors flex items-center gap-0.5"
+          className="px-2 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/15 transition-colors flex items-center gap-0.5"
         >
           <Plus className="h-3 w-3" /> Categoria
         </button>
@@ -262,11 +262,11 @@ export default function Products() {
               {p.imagem_url ? (
                 <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" loading="lazy" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100">
-                  <UtensilsCrossed className="h-12 w-12 text-orange-300" />
+                <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                  <UtensilsCrossed className="h-12 w-12 text-primary/40" />
                 </div>
               )}
-              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                   <Pencil className="h-3 w-3" />
                 </Button>
@@ -305,8 +305,8 @@ export default function Products() {
                   {detailProduct.imagem_url ? (
                     <img src={detailProduct.imagem_url} alt={detailProduct.nome} className="w-full h-56 object-cover" />
                   ) : (
-                    <div className="w-full h-56 flex items-center justify-center bg-gradient-to-br from-orange-50 to-orange-100">
-                      <UtensilsCrossed className="h-16 w-16 text-orange-300" />
+                    <div className="w-full h-56 flex items-center justify-center bg-primary/5">
+                      <UtensilsCrossed className="h-16 w-16 text-primary/40" />
                     </div>
                   )}
                 </div>

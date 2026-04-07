@@ -50,18 +50,18 @@ interface AutomationInfo {
 // ─── Static data ──────────────────────────────────────────────────────────────
 
 const integrations = [
-  { nome: "iFood",        descricao: "Sincronize pedidos do iFood" },
+  { nome: "iFood",        descricao: "Integração com iFood" },
   { nome: "Rappi",        descricao: "Integração com Rappi" },
   { nome: "UaiRango",     descricao: "Integração com UaiRango" },
   { nome: "Mercado Pago", descricao: "Receba pagamentos online" },
 ];
 
 const waStatusConfig: Record<WAStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  pendente:      { label: "Aguardando configuração", color: "bg-gray-100 text-gray-600",            icon: <Clock className="h-3 w-3" /> },
-  aguardando_qr: { label: "Aguardando QR code",      color: "bg-amber-100 text-amber-700",           icon: <QrCode className="h-3 w-3" /> },
-  conectado:     { label: "Conectado",                color: "bg-emerald-100 text-emerald-700",       icon: <CheckCircle2 className="h-3 w-3" /> },
-  desconectado:  { label: "Desconectado",             color: "bg-red-100 text-red-700",               icon: <XCircle className="h-3 w-3" /> },
-  erro:          { label: "Erro de conexão",          color: "bg-red-100 text-red-700",               icon: <AlertCircle className="h-3 w-3" /> },
+  pendente:      { label: "Aguardando configuração", color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",            icon: <Clock className="h-3 w-3" /> },
+  aguardando_qr: { label: "Aguardando QR code",      color: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",           icon: <QrCode className="h-3 w-3" /> },
+  conectado:     { label: "Conectado",                color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",       icon: <CheckCircle2 className="h-3 w-3" /> },
+  desconectado:  { label: "Desconectado",             color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",               icon: <XCircle className="h-3 w-3" /> },
+  erro:          { label: "Erro de conexão",          color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",               icon: <AlertCircle className="h-3 w-3" /> },
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ export default function SettingsPage() {
     }
     setUploadingLogo(true);
     const ext = file.name.split(".").pop();
-    const path = `logos/${user.id}.${ext}`;
+    const path = `${user.id}/logo.${ext}`;
     const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
     if (error) {
       toast({ title: "Erro ao enviar logo", description: error.message, variant: "destructive" });
@@ -305,7 +305,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -424,7 +424,7 @@ export default function SettingsPage() {
 
           {waLoading ? (
             <div className="flex items-center justify-center h-40">
-              <Loader2 className="h-7 w-7 animate-spin text-orange-500" />
+              <Loader2 className="h-7 w-7 animate-spin text-primary" />
             </div>
           ) : (
             <>
@@ -465,7 +465,7 @@ export default function SettingsPage() {
 
               {/* Conectado */}
               {waStatus === "conectado" && (
-                <Card className="shadow-sm border-emerald-200">
+                <Card className="shadow-sm border-emerald-200 dark:border-emerald-800">
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3">
                       <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0" />
@@ -518,7 +518,7 @@ export default function SettingsPage() {
 
               {/* Configuração em andamento */}
               {!waInfo?.onboarding_done && waStatus === "pendente" && (
-                <Card className="shadow-sm border-amber-200">
+                <Card className="shadow-sm border-amber-200 dark:border-amber-800">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-5 w-5 text-amber-500 animate-spin" />
@@ -602,7 +602,7 @@ export default function SettingsPage() {
                         "Escaneie o QR code acima",
                       ].map((step, i) => (
                         <div key={i} className="flex items-center gap-2 text-sm">
-                          <span className="h-5 w-5 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center shrink-0 font-bold">
+                          <span className="h-5 w-5 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0 font-bold">
                             {i + 1}
                           </span>
                           {step}
@@ -679,7 +679,7 @@ export default function SettingsPage() {
               <CardContent>
                 {loadingMembers ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : members.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Nenhum usuário convidado ainda</p>
@@ -698,7 +698,7 @@ export default function SettingsPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <Badge variant="outline" className={member.status === "ativo" ? "text-emerald-600 border-emerald-200" : "text-amber-600 border-amber-200"}>
+                            <Badge variant="outline" className={member.status === "ativo" ? "text-emerald-600 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800" : "text-amber-600 border-amber-200 dark:text-amber-400 dark:border-amber-800"}>
                               {member.status === "ativo" ? "Ativo" : "Pendente"}
                             </Badge>
                             <Button

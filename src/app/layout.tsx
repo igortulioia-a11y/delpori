@@ -6,8 +6,11 @@ import { Providers } from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "DeliveryHub - Gestão de Delivery",
+  title: "Delpori - Gestão de Delivery",
   description: "Sistema de gestão de delivery com IA no WhatsApp",
+  icons: {
+    icon: "/logo-icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
