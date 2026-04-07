@@ -260,9 +260,9 @@ function MenuDigitalInner() {
                       <div key={item.product.id} className="space-y-2">
                         <div className="flex gap-3">
                           {item.product.imagem_url ? (
-                            <img src={item.product.imagem_url} alt={item.product.nome} className="w-18 h-18 rounded-xl object-cover" />
+                            <img src={item.product.imagem_url} alt={item.product.nome} className="w-16 h-16 shrink-0 rounded-xl object-cover" />
                           ) : (
-                            <div className="w-18 h-18 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+                            <div className="w-16 h-16 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
                               <UtensilsCrossed className="h-8 w-8 text-primary/40" />
                             </div>
                           )}
