@@ -96,6 +96,7 @@ export default function Automations() {
   const [tempoEntrega, setTempoEntrega] = useState("");
   const [areaEntrega, setAreaEntrega] = useState("");
   const [formasPagamento, setFormasPagamento] = useState("");
+  const [detalhesPagamento, setDetalhesPagamento] = useState("");
 
   // Perfil IA state (de profiles)
   const [savingPerfil, setSavingPerfil] = useState(false);
@@ -150,7 +151,7 @@ export default function Automations() {
 
     const { data: settings } = await supabase
       .from("automation_settings")
-      .select("ativo, horario_ativo, horario_inicio, horario_fim, msg_fora_hora, taxa_entrega, tempo_entrega_min, area_entrega, formas_pagamento")
+      .select("ativo, horario_ativo, horario_inicio, horario_fim, msg_fora_hora, taxa_entrega, tempo_entrega_min, area_entrega, formas_pagamento, detalhes_pagamento")
       .eq("user_id", user.id)
       .single();
 
@@ -172,6 +173,7 @@ export default function Automations() {
       const parts = fp.split(",").map((s: string) => s.trim()).filter(Boolean);
       const isStructured = parts.length > 0 && parts.every((p: string) => validKeys.includes(p));
       setFormasPagamento(isStructured ? fp : "pix,credito,debito,dinheiro");
+      setDetalhesPagamento(settings.detalhes_pagamento || "");
     }
 
     // Carrega perfil para a IA
@@ -263,6 +265,7 @@ export default function Automations() {
         tempo_entrega_min: parseInt(tempoEntrega) || 45,
         area_entrega: areaEntrega || null,
         formas_pagamento: formasPagamento || null,
+        detalhes_pagamento: detalhesPagamento || null,
         atualizado_em: new Date().toISOString(),
       })
       .eq("user_id", user.id);
@@ -829,6 +832,18 @@ export default function Automations() {
                     </div>
                   );
                 })}
+                <Separator className="my-2" />
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Detalhes para a IA (chave PIX, troco, etc.)</Label>
+                  <Textarea
+                    value={detalhesPagamento}
+                    onChange={e => setDetalhesPagamento(e.target.value)}
+                    rows={3}
+                    className="text-sm"
+                    placeholder="Ex: Chave PIX: 11999990000 (CPF). Troco disponível até R$50."
+                  />
+                  <p className="text-xs text-muted-foreground">A IA usa essas informações para orientar o cliente sobre pagamento</p>
+                </div>
               </div>
             </CardContent>
           </Card>
