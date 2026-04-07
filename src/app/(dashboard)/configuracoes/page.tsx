@@ -171,8 +171,11 @@ export default function SettingsPage() {
       toast({ title: "Erro ao enviar logo", description: error.message, variant: "destructive" });
     } else {
       const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-      setRestaurante(r => ({ ...r, logo_url: data.publicUrl }));
-      toast({ title: "Logo enviado!" });
+      const urlWithCache = `${data.publicUrl}?t=${Date.now()}`;
+      setRestaurante(r => ({ ...r, logo_url: urlWithCache }));
+      // Salvar no banco automaticamente
+      await supabase.from("profiles").update({ logo_url: urlWithCache, atualizado_em: new Date().toISOString() }).eq("id", user.id);
+      toast({ title: "Logo atualizado!" });
     }
     setUploadingLogo(false);
   };
