@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get("slug");
 
-  if (!slug || slug.length > 100 || !/^[a-z0-9-]+$/.test(slug)) {
+  if (!slug || slug.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(slug)) {
     return NextResponse.json({ error: "Slug inválido" }, { status: 400 });
   }
 

@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, MessageCircle, UtensilsCrossed } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -232,19 +232,6 @@ function MenuDigitalInner() {
           );
         })}
       </main>
-
-      {/* WhatsApp floating button */}
-      {profile?.telefone && (
-        <a
-          href={`https://wa.me/${profile.telefone.replace(/\D/g, "")}?text=${encodeURIComponent("Oi! Vi o cardápio e gostaria de fazer um pedido")}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`fixed z-40 flex items-center gap-2 bg-[#25D366] hover:bg-[#20BD5A] text-white font-semibold rounded-full shadow-lg transition-all duration-200 hover:scale-105 ${totalItems > 0 ? "bottom-20 right-4 px-4 py-3 text-sm" : "bottom-6 left-1/2 -translate-x-1/2 px-6 py-3.5 text-base"}`}
-        >
-          <MessageCircle className="h-5 w-5" />
-          Pedir pelo WhatsApp
-        </a>
-      )}
 
       {/* Cart bar */}
       {totalItems > 0 && (
