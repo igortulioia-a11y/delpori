@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Read(//c/Users/igort/OneDrive/Desktop/Igor/delivery/**)",
-      "Bash(tar -czf delivery-hub-backup-20260406.tar.gz --exclude='node_modules' --exclude='.next' --exclude='.git' delivery-hub)"
+      "Bash(tar -czf delivery-hub-backup-20260406.tar.gz --exclude='node_modules' --exclude='.next' --exclude='.git' delivery-hub)",
+      "WebFetch(domain:www.uairango.com)",
+      "WebSearch",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx skills:*)",
+      "WebFetch(domain:impeccable.style)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx create-next-app@latest delpori-landing --typescript --tailwind --eslint --app --src-dir --no-turbopack --import-alias \"@/*\" --use-npm)",
+      "Bash(npm run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001)",
+      "WebFetch(domain:emilkowal.ski)",
+      "WebFetch(domain:mayahub.ai)",
+      "mcp___21st-dev_magic__21st_magic_component_inspiration",
+      "Bash(ls -la /c/Users/igort/OneDrive/Desktop/Igor/delivery/delivery-hub/src/app/\\\\\\(public\\\\\\)/cardapio/)"
     ]
   }
 }

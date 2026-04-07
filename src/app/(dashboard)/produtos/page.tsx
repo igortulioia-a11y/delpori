@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Plus, Pencil, Trash2, Loader2, UtensilsCrossed, Upload, X, Download } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Plus, Pencil, Trash2, Loader2, UtensilsCrossed, Upload, X, Download, GripVertical, ArrowUpDown } from "lucide-react";
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { ImportMenuDialog } from "@/components/ImportMenuDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +29,31 @@ interface Product {
   categoria: string;
   imagem_url: string;
   disponivel: boolean;
+  ordem: number;
+}
+
+function SortableProduct({ product, onEdit, onDelete, onToggle }: { product: Product; onEdit: (p: Product) => void; onDelete: (id: string) => void; onToggle: (p: Product) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: product.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-3 p-3 bg-card border rounded-xl shadow-sm">
+      <button {...attributes} {...listeners} className="touch-none cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground">
+        <GripVertical className="h-5 w-5" />
+      </button>
+      {product.imagem_url ? (
+        <img src={product.imagem_url} alt={product.nome} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+      ) : (
+        <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
+          <UtensilsCrossed className="h-5 w-5 text-primary/40" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-sm truncate">{product.nome}</p>
+        <p className="text-xs text-muted-foreground">{product.categoria} · R$ {product.preco.toFixed(2).replace(".", ",")}</p>
+      </div>
+      <Switch checked={product.disponivel} onCheckedChange={() => onToggle(product)} />
+    </div>
+  );
 }
 
 export default function Products() {
@@ -43,7 +71,10 @@ export default function Products() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [sortMode, setSortMode] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }));
 
   // Categorias: apenas dos produtos existentes + customizadas pelo usuário
   const allCats = Array.from(new Set([
@@ -64,6 +95,7 @@ export default function Products() {
       .from("products")
       .select("*")
       .eq("user_id", user.id)
+      .order("ordem", { ascending: true })
       .order("criado_em", { ascending: false });
 
     if (error) {
@@ -79,6 +111,33 @@ export default function Products() {
   }, [user?.id]);
 
   const filtered = catFilter === "Todos" ? products : products.filter((p) => p.categoria === catFilter);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = filtered.findIndex(p => p.id === active.id);
+    const newIndex = filtered.findIndex(p => p.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(filtered, oldIndex, newIndex);
+    // Update ordem in full products array
+    const updatedProducts = products.map(p => {
+      const idx = reordered.findIndex(r => r.id === p.id);
+      return idx !== -1 ? { ...p, ordem: idx } : p;
+    });
+    setProducts(updatedProducts);
+  };
+
+  const saveOrder = async () => {
+    if (!user) return;
+    setSavingOrder(true);
+    const updates = products.map((p, i) => ({ id: p.id, ordem: p.ordem ?? i }));
+    for (const u of updates) {
+      await supabase.from("products").update({ ordem: u.ordem }).eq("id", u.id).eq("user_id", user.id);
+    }
+    setSavingOrder(false);
+    setSortMode(false);
+    toast({ title: "Ordem salva!" });
+  };
 
   const handleImageUpload = async (file: File) => {
     if (!user) return;
@@ -206,12 +265,27 @@ export default function Products() {
           <p className="text-muted-foreground text-sm mt-1">Gerencie os itens do seu delivery</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
-            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Importar UaiRango</span><span className="sm:hidden">Importar</span>
-          </Button>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Adicionar produto</span><span className="sm:hidden">Adicionar</span>
-          </Button>
+          {sortMode ? (
+            <>
+              <Button variant="outline" onClick={() => { setSortMode(false); loadProducts(); }}>Cancelar</Button>
+              <Button onClick={saveOrder} disabled={savingOrder} className="gap-2">
+                {savingOrder ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpDown className="h-4 w-4" />}
+                {savingOrder ? "Salvando..." : "Salvar ordem"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setSortMode(true)} className="gap-2">
+                <ArrowUpDown className="h-4 w-4" /> <span className="hidden sm:inline">Ordenar</span>
+              </Button>
+              <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+                <Download className="h-4 w-4" /> <span className="hidden sm:inline">Importar UaiRango</span><span className="sm:hidden">Importar</span>
+              </Button>
+              <Button onClick={openCreate} className="gap-2">
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Adicionar produto</span><span className="sm:hidden">Adicionar</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -248,47 +322,59 @@ export default function Products() {
         </div>
       )}
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((p) => (
-          <Card
-            key={p.id}
-            className={`shadow-sm overflow-hidden transition-shadow hover:shadow-md group cursor-pointer ${!p.disponivel ? "opacity-60" : ""}`}
-            onClick={() => setDetailProduct(p)}
-          >
-            <div className="relative h-40 overflow-hidden bg-secondary">
-              {p.imagem_url ? (
-                <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" loading="lazy" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                  <UtensilsCrossed className="h-12 w-12 text-primary/40" />
-                </div>
-              )}
-              <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button size="icon" variant="secondary" className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground" onClick={(e) => { e.stopPropagation(); deleteProduct(p.id); }}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+      {/* Grid ou Sort Mode */}
+      {sortMode ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={filtered.map(p => p.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2 max-w-xl">
+              {filtered.map(p => (
+                <SortableProduct key={p.id} product={p} onEdit={openEdit} onDelete={deleteProduct} onToggle={toggleActive} />
+              ))}
             </div>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <Badge variant="secondary" className="text-[10px] font-medium">{p.categoria}</Badge>
-                <Switch
-                  checked={p.disponivel}
-                  onCheckedChange={() => toggleActive(p)}
-                  onClick={(e) => e.stopPropagation()}
-                />
+          </SortableContext>
+        </DndContext>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((p) => (
+            <Card
+              key={p.id}
+              className={`shadow-sm overflow-hidden transition-shadow hover:shadow-md group cursor-pointer ${!p.disponivel ? "opacity-60" : ""}`}
+              onClick={() => setDetailProduct(p)}
+            >
+              <div className="relative h-40 overflow-hidden bg-secondary">
+                {p.imagem_url ? (
+                  <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                    <UtensilsCrossed className="h-12 w-12 text-primary/40" />
+                  </div>
+                )}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="secondary" className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground" onClick={(e) => { e.stopPropagation(); deleteProduct(p.id); }}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-              <h3 className="font-semibold text-sm">{p.nome}</h3>
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{p.descricao}</p>
-              <p className="text-base font-bold mt-2 tabular-nums text-primary">R$ {p.preco.toFixed(2).replace(".", ",")}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <Badge variant="secondary" className="text-[10px] font-medium">{p.categoria}</Badge>
+                  <Switch
+                    checked={p.disponivel}
+                    onCheckedChange={() => toggleActive(p)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <h3 className="font-semibold text-sm">{p.nome}</h3>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{p.descricao}</p>
+                <p className="text-base font-bold mt-2 tabular-nums text-primary">R$ {p.preco.toFixed(2).replace(".", ",")}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Product detail sheet */}
       <Sheet open={!!detailProduct} onOpenChange={(open) => !open && setDetailProduct(null)}>

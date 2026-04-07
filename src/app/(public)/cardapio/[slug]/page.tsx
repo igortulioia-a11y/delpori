@@ -63,6 +63,7 @@ function MenuDigitalInner() {
         .select("id, nome, descricao, preco, categoria, imagem_url, disponivel")
         .eq("user_id", profileData.id)
         .eq("disponivel", true)
+        .order("ordem", { ascending: true })
         .order("criado_em", { ascending: false });
 
       const prods: Product[] = (produtosData || []).map((p: any) => ({
