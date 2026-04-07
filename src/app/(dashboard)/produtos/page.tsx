@@ -39,19 +39,16 @@ export default function Products() {
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [newCatInput, setNewCatInput] = useState("");
   const [customCategories, setCustomCategories] = useState<string[]>([]);
-  const [removedCats, setRemovedCats] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Categorias: dos produtos + customizadas
-  const defaultCats = ["Lanches", "Pizzas", "Bebidas", "Pratos", "Sobremesas", "Combos", "Sorvetes", "Frios"];
+  // Categorias: apenas dos produtos existentes + customizadas pelo usuário
   const allCats = Array.from(new Set([
     ...products.map(p => p.categoria).filter(Boolean),
     ...customCategories,
-    ...defaultCats.filter(c => !removedCats.includes(c)),
   ])).sort();
   const categorias = ["Todos", ...allCats];
 
@@ -464,7 +461,6 @@ export default function Products() {
                 const name = newCatInput.trim();
                 if (name && !allCats.includes(name)) {
                   setCustomCategories(prev => [...prev, name]);
-                  setRemovedCats(prev => prev.filter(c => c !== name));
                 }
                 setNewCatInput("");
               }}>
@@ -493,7 +489,6 @@ export default function Products() {
                           await loadProducts();
                         }
                         setCustomCategories(prev => prev.filter(c => c !== cat));
-                        setRemovedCats(prev => [...prev, cat]);
                         toast({ title: `Categoria "${cat}" excluída` });
                       }}
                     >
