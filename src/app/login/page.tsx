@@ -117,9 +117,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center gap-3 mb-6">
-            <div className="bg-primary shadow-lg rounded-2xl p-3">
-              <img src="/logo-icon.svg" alt="Delpori" className="h-10 w-10 drop-shadow-md" />
-            </div>
+            <img src="/logo-icon.svg" alt="Delpori" className="h-14 w-14 drop-shadow-md" />
             <h1 className="text-2xl font-bold">Delpori</h1>
           </div>
 
