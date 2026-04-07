@@ -253,7 +253,7 @@ export default function Automations() {
     if (!user) return;
     setSaving(true);
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("automation_settings")
       .update({
         ativo: enabled,
@@ -268,10 +268,13 @@ export default function Automations() {
         detalhes_pagamento: detalhesPagamento || null,
         atualizado_em: new Date().toISOString(),
       })
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .select("id");
 
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    } else if (!updated || updated.length === 0) {
+      toast({ title: "Erro ao salvar", description: "Sessão expirada. Faça login novamente.", variant: "destructive" });
     } else {
       setSaved(true);
       toast({ title: "Configurações salvas!" });
