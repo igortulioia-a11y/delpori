@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin, getAuthUserId } from "@/lib/supabase-admin";
-import type { ImportMenuItem } from "@/lib/uairango";
+import { parseBody, importMenuSchema, isValidExternalUrl } from "@/lib/validation";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * POST /api/import-menu/import
@@ -12,14 +13,19 @@ export async function POST(req: Request) {
   const userId = await getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const { items, skipDuplicates = true } = (await req.json()) as {
-    items: ImportMenuItem[];
-    skipDuplicates: boolean;
-  };
-
-  if (!items?.length) {
-    return NextResponse.json({ error: "Nenhum item para importar" }, { status: 400 });
+  // Rate limit
+  const rl = checkRateLimit(`import:${userId}`, RATE_LIMITS.importMenu);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Muitas importações. Aguarde." }, { status: 429 });
   }
+
+  // Validar body com zod (inclui limite de 500 items)
+  const parsed = await parseBody(req, importMenuSchema, 5 * 1024 * 1024);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+
+  const { items, skipDuplicates } = parsed.data;
 
   // Buscar nomes existentes pra detectar duplicados
   let existingNames = new Set<string>();
@@ -61,12 +67,14 @@ export async function POST(req: Request) {
       });
 
       if (insertError) {
-        errors.push(`${item.nome}: ${insertError.message}`);
+        console.error(`[import-menu] Insert erro para "${item.nome}":`, insertError.message);
+        errors.push(`${item.nome}: falha ao importar`);
       } else {
         imported++;
       }
     } catch (err: any) {
-      errors.push(`${item.nome}: ${err.message}`);
+      console.error(`[import-menu] Erro para "${item.nome}":`, err.message);
+      errors.push(`${item.nome}: falha ao processar`);
     }
   }
 
@@ -83,7 +91,10 @@ async function downloadAndUploadImage(
   index: number
 ): Promise<string | null> {
   try {
-    const res = await fetch(sourceUrl);
+    // Validar URL para prevenir SSRF
+    if (!isValidExternalUrl(sourceUrl)) return null;
+
+    const res = await fetch(sourceUrl, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
 
     const contentType = res.headers.get("content-type") || "image/jpeg";

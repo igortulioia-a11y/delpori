@@ -1,12 +1,30 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin, getAuthUserId } from "@/lib/supabase-admin";
+import {
+  parseBody,
+  inviteMemberSchema,
+  deleteMemberSchema,
+  updateMemberSchema,
+} from "@/lib/validation";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const userId = await getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const { email, permissoes } = await req.json();
-  if (!email) return NextResponse.json({ error: "E-mail obrigatório" }, { status: 400 });
+  // Rate limit
+  const rl = checkRateLimit(`invite:${userId}`, RATE_LIMITS.inviteMember);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Muitos convites. Aguarde." }, { status: 429 });
+  }
+
+  // Validar body
+  const parsed = await parseBody(req, inviteMemberSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+
+  const { email, permissoes } = parsed.data;
 
   // Verifica se já existe membro com esse email para esse dono
   const { data: existing } = await supabaseAdmin
@@ -23,10 +41,11 @@ export async function POST(req: Request) {
   // Insere o membro como pendente antes de mandar o convite
   const { error: insertError } = await supabaseAdmin
     .from("team_members")
-    .insert({ owner_id: userId, email, permissoes: permissoes ?? [], status: "pendente" });
+    .insert({ owner_id: userId, email, permissoes, status: "pendente" });
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    console.error("[invite-member] Insert erro:", insertError.message);
+    return NextResponse.json({ error: "Erro ao cadastrar membro" }, { status: 500 });
   }
 
   // Manda convite via Supabase Auth (e-mail automático com link de cadastro)
@@ -38,7 +57,8 @@ export async function POST(req: Request) {
   if (inviteError) {
     // Remove o registro se o convite falhou
     await supabaseAdmin.from("team_members").delete().eq("owner_id", userId).eq("email", email);
-    return NextResponse.json({ error: inviteError.message }, { status: 500 });
+    console.error("[invite-member] Invite erro:", inviteError.message);
+    return NextResponse.json({ error: "Erro ao enviar convite" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
@@ -48,16 +68,21 @@ export async function DELETE(req: Request) {
   const userId = await getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const { memberId } = await req.json();
-  if (!memberId) return NextResponse.json({ error: "ID do membro obrigatório" }, { status: 400 });
+  const parsed = await parseBody(req, deleteMemberSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
 
   const { error } = await supabaseAdmin
     .from("team_members")
     .delete()
-    .eq("id", memberId)
+    .eq("id", parsed.data.memberId)
     .eq("owner_id", userId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[invite-member] Delete erro:", error.message);
+    return NextResponse.json({ error: "Erro ao remover membro" }, { status: 500 });
+  }
   return NextResponse.json({ success: true });
 }
 
@@ -65,15 +90,20 @@ export async function PATCH(req: Request) {
   const userId = await getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-  const { memberId, permissoes } = await req.json();
-  if (!memberId) return NextResponse.json({ error: "ID do membro obrigatório" }, { status: 400 });
+  const parsed = await parseBody(req, updateMemberSchema);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
 
   const { error } = await supabaseAdmin
     .from("team_members")
-    .update({ permissoes })
-    .eq("id", memberId)
+    .update({ permissoes: parsed.data.permissoes })
+    .eq("id", parsed.data.memberId)
     .eq("owner_id", userId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[invite-member] Patch erro:", error.message);
+    return NextResponse.json({ error: "Erro ao atualizar permissões" }, { status: 500 });
+  }
   return NextResponse.json({ success: true });
 }

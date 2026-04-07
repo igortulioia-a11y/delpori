@@ -360,14 +360,14 @@ export default function Automations() {
 
     if (!camp) { setSendingCampaign(null); return; }
 
-    // Get automation settings for Evolution API
+    // Verificar se WhatsApp esta conectado
     const { data: settings } = await supabase
       .from("automation_settings")
-      .select("evolution_api_url, evolution_instance, evolution_api_key")
+      .select("whatsapp_status")
       .eq("user_id", user.id)
       .single();
 
-    if (!settings?.evolution_api_url || !settings?.evolution_api_key) {
+    if (settings?.whatsapp_status !== "conectado") {
       toast({ title: "Configure o WhatsApp primeiro", description: "Vá em WhatsApp para conectar sua instância", variant: "destructive" });
       setSendingCampaign(null);
       return;
@@ -409,11 +409,18 @@ export default function Automations() {
       const phone = customer.telefone.replace(/\D/g, "");
 
       try {
-        const url = `${settings.evolution_api_url}/message/sendText/${settings.evolution_instance}`;
-        const res = await fetch(url, {
+        const res = await fetch("/api/send-campaign-message", {
           method: "POST",
-          headers: { "Content-Type": "application/json", apikey: settings.evolution_api_key },
-          body: JSON.stringify({ number: phone, text: mensagem }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            campaignId,
+            telefone: phone,
+            mensagem,
+            customerId: customer.id,
+          }),
         });
 
         if (res.ok) {

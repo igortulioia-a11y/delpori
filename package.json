@@ -1,5 +1,5 @@
 {
-  "name": "delivery-hub",
+  "name": "delpori",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -34,7 +34,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.1",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20",

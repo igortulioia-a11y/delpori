@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
+  // Rate limit por IP
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`restaurant-phone:${ip}`, RATE_LIMITS.restaurantPhone);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Muitas requisições. Tente novamente em breve." },
+      { status: 429 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get("slug");
 
-  if (!slug) {
-    return NextResponse.json({ error: "slug é obrigatório" }, { status: 400 });
+  if (!slug || slug.length > 100 || !/^[a-z0-9-]+$/.test(slug)) {
+    return NextResponse.json({ error: "Slug inválido" }, { status: 400 });
   }
 
   const { data: profile } = await supabaseAdmin

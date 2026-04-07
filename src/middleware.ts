@@ -4,11 +4,19 @@ import type { NextRequest } from "next/server";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = ["/login", "/reset-password", "/update-password"];
-const PUBLIC_PREFIXES = ["/cardapio/", "/api/"];
+const PUBLIC_PREFIXES = ["/cardapio/"];
+// API routes publicas especificas (as demais exigem auth via Bearer token interno)
+const PUBLIC_API_ROUTES = ["/api/restaurant-phone", "/api/checkout"];
 
 function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_ROUTES.includes(pathname)) return true;
-  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
+  // API routes autenticadas usam Bearer token, nao cookie — middleware so atrapalha
+  // Mas liberar apenas rotas publicas explicitamente listadas
+  if (pathname.startsWith("/api/")) {
+    return PUBLIC_API_ROUTES.includes(pathname);
+  }
+  return false;
 }
 
 export async function middleware(request: NextRequest) {
