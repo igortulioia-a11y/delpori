@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/lib/supabase";
+import { normalizeSlug } from "@/lib/utils";
 
 interface DeliveryZone {
   id: string;
@@ -52,7 +53,7 @@ function MenuCheckoutInner() {
       const { data: profile } = await supabase
         .from("profiles")
         .select("id")
-        .eq("slug", slug)
+        .eq("slug", normalizeSlug(slug))
         .single();
 
       if (!profile) return;
@@ -67,7 +68,7 @@ function MenuCheckoutInner() {
 
       // Buscar telefone WhatsApp e taxa de entrega padrão do restaurante
       try {
-        const res = await fetch(`/api/restaurant-phone?slug=${encodeURIComponent(slug)}`);
+        const res = await fetch(`/api/restaurant-phone?slug=${encodeURIComponent(normalizeSlug(slug))}`);
         if (res.ok) {
           const data = await res.json();
           setWhatsappPhone(data.phone);

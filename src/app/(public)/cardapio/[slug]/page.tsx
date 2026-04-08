@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabase";
+import { normalizeSlug } from "@/lib/utils";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/contexts/CartContext";
 
@@ -47,7 +48,7 @@ function MenuDigitalInner() {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id, nome, logo_url, tipo_estabelecimento, telefone")
-        .eq("slug", slug)
+        .eq("slug", normalizeSlug(slug))
         .eq("ativo", true)
         .single();
 

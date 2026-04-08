@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
+import { normalizeSlug } from "@/lib/utils";
 
 export async function GET(request: Request) {
   // Rate limit por IP
@@ -14,11 +15,13 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const slug = searchParams.get("slug");
+  const rawSlug = searchParams.get("slug");
 
-  if (!slug || slug.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(slug)) {
+  if (!rawSlug || rawSlug.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(rawSlug)) {
     return NextResponse.json({ error: "Slug inválido" }, { status: 400 });
   }
+
+  const slug = normalizeSlug(rawSlug);
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")

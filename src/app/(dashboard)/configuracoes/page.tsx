@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
+import { normalizeSlug } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -204,10 +205,11 @@ export default function SettingsPage() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
+    const slugNormalizado = restaurante.slug ? normalizeSlug(restaurante.slug) : null;
     const { error } = await supabase.from("profiles").update({
       telefone: restaurante.telefone,
       endereco: restaurante.endereco,
-      slug: restaurante.slug || null,
+      slug: slugNormalizado,
       logo_url: restaurante.logo_url || null,
       atualizado_em: new Date().toISOString(),
     }).eq("id", user.id);
@@ -353,12 +355,19 @@ export default function SettingsPage() {
 
               <div className="space-y-2">
                 <Label>Slug do cardápio</Label>
-                <Input value={restaurante.slug} onChange={(e) => setRestaurante({ ...restaurante, slug: e.target.value })} placeholder="meu-restaurante" />
+                <Input
+                  value={restaurante.slug}
+                  onChange={(e) => setRestaurante({ ...restaurante, slug: normalizeSlug(e.target.value) })}
+                  placeholder="meu-restaurante"
+                />
                 {restaurante.slug && (
                   <p className="text-xs text-muted-foreground">
                     URL do seu cardápio: /cardapio/{restaurante.slug}
                   </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  Use apenas letras minúsculas, números e hífen. Sem espaços ou acentos.
+                </p>
               </div>
 
               <div className="space-y-2">
