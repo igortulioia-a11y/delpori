@@ -72,6 +72,10 @@ export const sendCampaignMessageSchema = z.object({
   customerId: z.string().uuid("ID do cliente inválido"),
 });
 
+export const notifyOrderStatusSchema = z.object({
+  orderId: z.string().uuid("ID do pedido inválido"),
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**

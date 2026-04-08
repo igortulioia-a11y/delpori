@@ -85,4 +85,6 @@ export const RATE_LIMITS = {
   importMenu: { limit: 5, windowSeconds: 60 },
   /** /api/send-campaign-message: 60 msgs por minuto (1/s) */
   sendCampaignMessage: { limit: 60, windowSeconds: 60 },
+  /** /api/notify-order-status: 20 notificacoes por hora por usuario (anti-spam WhatsApp) */
+  notifyOrderStatus: { limit: 20, windowSeconds: 3600 },
 } as const;

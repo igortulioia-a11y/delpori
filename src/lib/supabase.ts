@@ -99,6 +99,7 @@ export interface Order {
   criado_em: string;
   atualizado_em: string;
   cardapio_web: boolean;
+  notified_saiu_entrega_at: string | null;
   customers?: Customer;
   order_items?: OrderItem[];
 }

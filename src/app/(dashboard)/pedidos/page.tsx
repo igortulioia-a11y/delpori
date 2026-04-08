@@ -149,6 +149,9 @@ export default function Orders() {
   }, [user?.id]);
 
   const changeStatus = async (orderId: string, newStatus: OrderStatus) => {
+    // Captura o status anterior ANTES do update otimista (pra detectar transicao)
+    const oldStatus = orders.find(o => o.id === orderId)?.status;
+
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     const { error } = await supabase
       .from("orders")
@@ -159,8 +162,30 @@ export default function Orders() {
     if (error) {
       toast({ title: "Erro ao atualizar status", description: error.message, variant: "destructive" });
       loadOrders();
-    } else {
-      toast({ title: "Status atualizado", description: `Pedido → ${ORDER_STATUS[newStatus]?.label}` });
+      return;
+    }
+
+    toast({ title: "Status atualizado", description: `Pedido → ${ORDER_STATUS[newStatus]?.label}` });
+
+    // Notifica o cliente quando o pedido sai pra entrega (fire-and-forget)
+    // So dispara na transicao em_preparo → saiu_entrega pra evitar spam
+    if (oldStatus === "em_preparo" && newStatus === "saiu_entrega") {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          // Nao aguarda: a UI ja deu feedback via toast, nao bloqueia
+          fetch("/api/notify-order-status", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ orderId }),
+          }).catch(err => console.error("Erro ao notificar cliente:", err));
+        }
+      } catch (err) {
+        console.error("Erro ao preparar notificacao ao cliente:", err);
+      }
     }
   };
 

@@ -172,6 +172,6 @@ Bucket `product-images` (publico). RLS INSERT exige path `{userId}/...`. Upload 
 
 ## Cuidados
 
-- **Prompt IA (WF2):** Ler inteiro antes de editar. Node "Montar Prompt com FAQs e Cardapio" no WF2.
+- **Prompt IA (WF2):** OBRIGATÓRIO salvar backup em `memory/backup_wf2_prompt_{data}.txt` ANTES de qualquer alteração. Ler inteiro antes de editar. Nunca remover regras sem entender. Node "Montar Prompt com FAQs e Cardapio" no WF2. Ver `memory/feedback_cuidados_prompt.md` para regras completas.
 - **Vercel region:** Se recriar projeto, regiao volta pra iad1 (EUA). vercel.json previne em deploys normais.
 - **Remote git:** `origin` = repo correto (`igortulioia-a11y/delpori`).
