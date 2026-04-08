@@ -6,7 +6,6 @@ import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, UtensilsCrossed, Sp
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/lib/supabase";
@@ -164,8 +163,8 @@ function MenuDigitalInner() {
       {/* Categories */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b shadow-sm">
         <div className="max-w-lg mx-auto">
-          <ScrollArea className="w-full">
-            <div className="flex gap-2 px-4 py-3">
+          <div className="w-full overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full">
+            <div className="flex gap-2 px-4 py-3 w-max">
               {categorias.map(cat => (
                 <button
                   key={cat}
@@ -180,7 +179,7 @@ function MenuDigitalInner() {
                 </button>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
 
