@@ -13,12 +13,13 @@ import {
   ClipboardList, Eye,
   ChevronRight, ChevronLeft, Loader2, RefreshCw,
   ArrowUpDown, ArrowUp, ArrowDown, MessageCircle,
-  Pencil, Minus, Plus, X, Save,
+  Pencil, Minus, Plus, X, Save, Printer,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ORDER_STATUS, type OrderStatus } from "@/lib/status-colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { printOrder, type RestauranteForPrint } from "@/lib/print-order";
 
 type SortKey = "numero" | "customer_name" | "total" | "status" | "created_at";
 type SortDir = "asc" | "desc";
@@ -120,6 +121,7 @@ export default function Orders() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
+  const [restaurante, setRestaurante] = useState<RestauranteForPrint>({ nome: "Delpori" });
 
   const loadOrders = useCallback(async () => {
     if (!user) { setLoading(false); return; }
@@ -161,6 +163,24 @@ export default function Orders() {
   }, [user?.id]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  // Carrega dados do restaurante (nome + telefone) pra impressao
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("nome, telefone_cozinha")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setRestaurante({
+            nome: data.nome || "Delpori",
+            telefone: data.telefone_cozinha,
+          });
+        }
+      });
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -334,6 +354,7 @@ export default function Orders() {
                         order={order}
                         onStatusChange={changeStatus}
                         onOrderEdited={loadOrders}
+                        restaurante={restaurante}
                         trigger={
                           <Button size="sm" variant="outline" className="h-6 px-2.5 text-[11px] rounded-full">
                             <Eye className="h-3 w-3 mr-1" />
@@ -465,7 +486,7 @@ export default function Orders() {
                         {formatHora(order.created_at)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <OrderDetailSheet order={order} onStatusChange={changeStatus} onOrderEdited={loadOrders} />
+                        <OrderDetailSheet order={order} onStatusChange={changeStatus} onOrderEdited={loadOrders} restaurante={restaurante} />
                       </TableCell>
                     </TableRow>
                   );
@@ -510,10 +531,11 @@ export default function Orders() {
   );
 }
 
-function OrderDetailSheet({ order, onStatusChange, onOrderEdited, trigger }: {
+function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, trigger }: {
   order: Order;
   onStatusChange: (id: string, status: OrderStatus) => void;
   onOrderEdited: () => void;
+  restaurante: RestauranteForPrint;
   trigger?: React.ReactNode;
 }) {
   const { user } = useAuth();
@@ -692,6 +714,14 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, trigger }: {
           </SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-5">
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => printOrder(order, restaurante)}
+          >
+            <Printer className="h-4 w-4" />
+            Imprimir cupom
+          </Button>
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-1">Cliente</p>
             <p className="font-medium">{order.customer_name}</p>
