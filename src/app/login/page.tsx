@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Eye, EyeOff, Loader2, UtensilsCrossed, Lock, Mail, AlertCircle, CheckCircle2, ArrowLeft,
+  Bot, LayoutDashboard,
 } from 'lucide-react'
 
 type Mode = 'login' | 'register' | 'forgot'
@@ -92,16 +93,18 @@ export default function LoginPage() {
           <img src="/logo-icon.png" alt="Delpori" className="h-16 w-16 mx-auto drop-shadow-lg" />
           <div>
             <h1 className="text-4xl font-bold tracking-tight">Delpori</h1>
-            <p className="mt-3 text-lg text-slate-300">CRM inteligente para seu delivery</p>
+            <p className="mt-3 text-lg text-slate-300">Gestão inteligente para delivery</p>
           </div>
           <div className="grid grid-cols-1 gap-4 text-left">
             {[
-              { emoji: '🤖', title: 'IA no WhatsApp', desc: 'Atendimento automático 24h com inteligência artificial' },
-              { emoji: '📊', title: 'Dashboard completo', desc: 'Métricas de vendas, pedidos e conversas em tempo real' },
-              { emoji: '🍔', title: 'Cardápio digital', desc: 'Link de cardápio para seus clientes pedirem direto' },
+              { icon: Bot, title: 'IA no WhatsApp', desc: 'Atendimento automático 24h com inteligência artificial' },
+              { icon: LayoutDashboard, title: 'Dashboard completo', desc: 'Métricas de vendas, pedidos e conversas em tempo real' },
+              { icon: UtensilsCrossed, title: 'Cardápio digital', desc: 'Link de cardápio para seus clientes pedirem direto' },
             ].map((item) => (
               <div key={item.title} className="flex items-start gap-3 bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/5">
-                <span className="text-2xl">{item.emoji}</span>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  <item.icon className="h-5 w-5" />
+                </div>
                 <div>
                   <p className="font-semibold text-sm">{item.title}</p>
                   <p className="text-xs text-slate-400 mt-0.5">{item.desc}</p>
