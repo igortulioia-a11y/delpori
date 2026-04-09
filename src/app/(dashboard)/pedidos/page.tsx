@@ -13,6 +13,7 @@ import {
   ClipboardList, Eye,
   ChevronRight, ChevronLeft, Loader2, RefreshCw,
   ArrowUpDown, ArrowUp, ArrowDown, MessageCircle,
+  Pencil, Minus, Plus, X, Save,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ORDER_STATUS, type OrderStatus } from "@/lib/status-colors";
@@ -22,6 +23,12 @@ import { toast } from "@/hooks/use-toast";
 type SortKey = "numero" | "customer_name" | "total" | "status" | "created_at";
 type SortDir = "asc" | "desc";
 
+interface OrderItemLocal {
+  nome: string;
+  qty: number;
+  preco: number;
+}
+
 interface Order {
   id: string;
   numero: number;
@@ -30,11 +37,22 @@ interface Order {
   customer_phone: string;
   status: OrderStatus;
   total: number;
+  subtotal: number;
+  taxa_entrega: number;
+  desconto: number;
   payment_method: string;
   payment_raw: string;
   address: string;
-  items: { nome: string; qty: number; preco: number }[];
+  items: OrderItemLocal[];
   created_at: string;
+  alterado_em: string | null;
+}
+
+interface ProductOption {
+  id: string;
+  nome: string;
+  preco: number;
+  categoria: string | null;
 }
 
 const kanbanColumns: { key: OrderStatus; label: string }[] = [
@@ -108,7 +126,7 @@ export default function Orders() {
     const { data, error } = await supabase
       .from("orders")
       .select(`
-        id, numero, customer_id, status, total, pagamento, endereco_entrega, criado_em,
+        id, numero, customer_id, status, total, subtotal, taxa_entrega, desconto, pagamento, endereco_entrega, criado_em, alterado_em,
         customers ( nome, telefone ),
         order_items ( nome, quantidade, preco_unit, observacao )
       `)
@@ -127,11 +145,15 @@ export default function Orders() {
         customer_phone: row.customers?.telefone ?? "",
         status: row.status as OrderStatus,
         total: row.total ?? 0,
+        subtotal: row.subtotal ?? 0,
+        taxa_entrega: row.taxa_entrega ?? 0,
+        desconto: row.desconto ?? 0,
         payment_method: row.pagamento ? (pagamentoLabel[row.pagamento] || row.pagamento) : "",
         payment_raw: row.pagamento || "",
         address: row.endereco_entrega ?? "",
         items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit })),
         created_at: row.criado_em,
+        alterado_em: row.alterado_em,
       }));
       setOrders(mapped);
     }
@@ -277,12 +299,18 @@ export default function Orders() {
                 )}
                 {colOrders.map(order => {
                   const isPix = order.payment_raw?.toLowerCase().includes("pix") && !!order.customer_phone;
+                  const isAltered = !!order.alterado_em && !["entregue", "cancelado"].includes(order.status);
                   return (
                   <div key={order.id} className="border rounded-lg px-3 py-2.5 bg-card hover:shadow-sm transition-shadow space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm tabular-nums">#{order.numero}</span>
+                          {isAltered && (
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-orange-500/15 border-orange-500/30 text-orange-700 dark:text-orange-400">
+                              Alterado
+                            </Badge>
+                          )}
                           <span className="text-sm text-muted-foreground truncate">{order.customer_name}</span>
                           <span className="text-xs text-muted-foreground ml-auto shrink-0">{formatHora(order.created_at)}</span>
                         </div>
@@ -386,9 +414,19 @@ export default function Orders() {
               <TableBody>
                 {paginated.map((order) => {
                   const config = ORDER_STATUS[order.status];
+                  const isAltered = !!order.alterado_em && !["entregue", "cancelado"].includes(order.status);
                   return (
                     <TableRow key={order.id}>
-                      <TableCell className="font-medium text-sm">#{order.numero}</TableCell>
+                      <TableCell className="font-medium text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <span>#{order.numero}</span>
+                          {isAltered && (
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-orange-500/15 border-orange-500/30 text-orange-700 dark:text-orange-400">
+                              Alterado
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm">{order.customer_name}</TableCell>
                       <TableCell className="hidden md:table-cell max-w-[200px] truncate text-sm text-muted-foreground">
                         {formatItems(order.items)}
@@ -416,7 +454,7 @@ export default function Orders() {
                         {formatHora(order.created_at)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <OrderDetailSheet order={order} onStatusChange={changeStatus} />
+                        <OrderDetailSheet order={order} onStatusChange={changeStatus} onOrderEdited={loadOrders} />
                       </TableCell>
                     </TableRow>
                   );
@@ -461,19 +499,184 @@ export default function Orders() {
   );
 }
 
-function OrderDetailSheet({ order, onStatusChange }: { order: Order; onStatusChange: (id: string, status: OrderStatus) => void }) {
+function OrderDetailSheet({ order, onStatusChange, onOrderEdited }: {
+  order: Order;
+  onStatusChange: (id: string, status: OrderStatus) => void;
+  onOrderEdited: () => void;
+}) {
+  const { user } = useAuth();
   const config = ORDER_STATUS[order.status];
   const allStatuses: OrderStatus[] = ["novo", "confirmado", "em_preparo", "saiu_entrega", "entregue", "cancelado"];
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editItems, setEditItems] = useState<OrderItemLocal[]>(order.items);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const canEdit = !["entregue", "cancelado"].includes(order.status);
+
+  // Recarrega items originais quando o sheet abre/fecha ou quando o pedido muda
+  useEffect(() => {
+    if (!editMode) {
+      setEditItems(order.items);
+    }
+  }, [order.items, editMode]);
+
+  // Fecha o edit mode quando o sheet fecha
+  useEffect(() => {
+    if (!sheetOpen) {
+      setEditMode(false);
+      setEditItems(order.items);
+    }
+  }, [sheetOpen, order.items]);
+
+  // Carrega produtos disponiveis ao entrar no edit mode
+  useEffect(() => {
+    if (!editMode || !user || products.length > 0) return;
+    setLoadingProducts(true);
+    supabase
+      .from("products")
+      .select("id, nome, preco, categoria, disponivel")
+      .eq("user_id", user.id)
+      .eq("disponivel", true)
+      .order("ordem", { ascending: true })
+      .then(({ data }) => {
+        setProducts((data || []) as ProductOption[]);
+        setLoadingProducts(false);
+      });
+  }, [editMode, user, products.length]);
+
+  const editSubtotal = useMemo(
+    () => editItems.reduce((sum, it) => sum + it.preco * it.qty, 0),
+    [editItems]
+  );
+  const editTotal = useMemo(
+    () => editSubtotal + (order.taxa_entrega ?? 0) - (order.desconto ?? 0),
+    [editSubtotal, order.taxa_entrega, order.desconto]
+  );
+
+  const incQty = (i: number) =>
+    setEditItems(items => items.map((it, idx) => idx === i ? { ...it, qty: it.qty + 1 } : it));
+  const decQty = (i: number) =>
+    setEditItems(items => items.map((it, idx) => idx === i && it.qty > 1 ? { ...it, qty: it.qty - 1 } : it));
+  const removeItem = (i: number) =>
+    setEditItems(items => items.filter((_, idx) => idx !== i));
+
+  const addItem = (productId: string) => {
+    const p = products.find(p => p.id === productId);
+    if (!p) return;
+    const existing = editItems.findIndex(it => it.nome === p.nome);
+    if (existing !== -1) {
+      incQty(existing);
+    } else {
+      setEditItems(items => [...items, { nome: p.nome, qty: 1, preco: Number(p.preco) }]);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditItems(order.items);
+    setEditMode(false);
+  };
+
+  const saveChanges = async () => {
+    if (!user) return;
+    if (editItems.length === 0) {
+      toast({ title: "Adicione pelo menos um item", variant: "destructive" });
+      return;
+    }
+    setSavingEdit(true);
+
+    // 1. DELETE todos os items antigos
+    const { error: delErr } = await supabase
+      .from("order_items")
+      .delete()
+      .eq("order_id", order.id)
+      .eq("user_id", user.id);
+
+    if (delErr) {
+      toast({ title: "Erro ao salvar", description: delErr.message, variant: "destructive" });
+      setSavingEdit(false);
+      return;
+    }
+
+    // 2. INSERT novos items
+    const { error: insErr } = await supabase
+      .from("order_items")
+      .insert(editItems.map(it => ({
+        order_id: order.id,
+        user_id: user.id,
+        nome: it.nome,
+        quantidade: it.qty,
+        preco_unit: it.preco,
+      })));
+
+    if (insErr) {
+      toast({ title: "Erro ao salvar", description: insErr.message, variant: "destructive" });
+      setSavingEdit(false);
+      return;
+    }
+
+    // 3. UPDATE order (subtotal + total + alterado_em)
+    const { error: updErr } = await supabase
+      .from("orders")
+      .update({
+        subtotal: editSubtotal,
+        total: editTotal,
+        alterado_em: new Date().toISOString(),
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", order.id)
+      .eq("user_id", user.id);
+
+    if (updErr) {
+      toast({ title: "Erro ao salvar", description: updErr.message, variant: "destructive" });
+      setSavingEdit(false);
+      return;
+    }
+
+    toast({
+      title: "Pedido atualizado!",
+      description: `Novo total: R$ ${editTotal.toFixed(2).replace(".", ",")}`,
+    });
+
+    // 4. Fire-and-forget: notifica cozinha
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        fetch("/api/notify-kitchen", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ orderId: order.id }),
+        }).catch(err => console.error("Erro notify-kitchen:", err));
+      }
+    } catch (err) {
+      console.error("Erro ao preparar notify-kitchen:", err);
+    }
+
+    setEditMode(false);
+    setSavingEdit(false);
+    onOrderEdited();
+  };
+
   return (
-    <Sheet>
+    <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="h-3.5 w-3.5" /></Button>
       </SheetTrigger>
-      <SheetContent className="sm:max-w-md">
+      <SheetContent className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+          <SheetTitle className="flex items-center gap-2 flex-wrap">
             Pedido #{order.numero}
             <Badge variant="outline" className={config.class}>{config.label}</Badge>
+            {order.alterado_em && !["entregue", "cancelado"].includes(order.status) && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-orange-500/15 border-orange-500/30 text-orange-700 dark:text-orange-400">
+                Alterado
+              </Badge>
+            )}
           </SheetTitle>
         </SheetHeader>
         <div className="mt-6 space-y-5">
@@ -483,19 +686,143 @@ function OrderDetailSheet({ order, onStatusChange }: { order: Order; onStatusCha
             {order.customer_phone && <p className="text-sm text-muted-foreground">{order.customer_phone}</p>}
           </div>
           <Separator />
+
+          {/* Itens — view mode ou edit mode */}
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">Itens</p>
-            {order.items?.length > 0 ? (
-              <div className="space-y-1">
-                {order.items.map((item, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span>{item.qty}x {item.nome}</span>
-                    <span className="tabular-nums text-muted-foreground">R$ {(item.preco * item.qty).toFixed(2).replace(".", ",")}</span>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-muted-foreground">Itens</p>
+              {!editMode && canEdit && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setEditMode(true)}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Editar
+                </Button>
+              )}
+            </div>
+
+            {!editMode ? (
+              // VIEW MODE
+              order.items?.length > 0 ? (
+                <div className="space-y-1">
+                  {order.items.map((item, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span>{item.qty}x {item.nome}</span>
+                      <span className="tabular-nums text-muted-foreground">R$ {(item.preco * item.qty).toFixed(2).replace(".", ",")}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-muted-foreground">—</p>
+            ) : (
+              // EDIT MODE
+              <div className="space-y-2">
+                {editItems.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg p-2">
+                    <span className="flex-1 text-sm truncate">{item.nome}</span>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => decQty(i)}
+                        disabled={item.qty <= 1}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="w-6 text-center text-sm font-medium tabular-nums">{item.qty}</span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => incQty(i)}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <span className="w-20 text-right text-sm tabular-nums shrink-0">
+                      R$ {(item.preco * item.qty).toFixed(2).replace(".", ",")}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                      onClick={() => removeItem(i)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))}
+                {editItems.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">Nenhum item. Adicione abaixo.</p>
+                )}
+
+                {/* Adicionar novo item */}
+                <Select value="" onValueChange={addItem}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder={loadingProducts ? "Carregando produtos..." : "+ Adicionar item do cardápio"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.length === 0 && !loadingProducts && (
+                      <div className="text-xs text-muted-foreground px-2 py-1">Nenhum produto disponível</div>
+                    )}
+                    {products.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.nome} — R$ {Number(p.preco).toFixed(2).replace(".", ",")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Preview do novo total */}
+                <div className="flex justify-between items-center pt-2 border-t text-sm">
+                  <span className="text-muted-foreground">Subtotal:</span>
+                  <span className="tabular-nums">R$ {editSubtotal.toFixed(2).replace(".", ",")}</span>
+                </div>
+                {order.taxa_entrega > 0 && (
+                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                    <span>+ Taxa de entrega:</span>
+                    <span className="tabular-nums">R$ {order.taxa_entrega.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                )}
+                {order.desconto > 0 && (
+                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                    <span>− Desconto:</span>
+                    <span className="tabular-nums">R$ {order.desconto.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-1 border-t font-semibold text-sm">
+                  <span>Novo total:</span>
+                  <span className="tabular-nums text-base">R$ {editTotal.toFixed(2).replace(".", ",")}</span>
+                </div>
+
+                {/* Botões */}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={cancelEdit}
+                    disabled={savingEdit}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 gap-1"
+                    onClick={saveChanges}
+                    disabled={savingEdit || editItems.length === 0}
+                  >
+                    {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    {savingEdit ? "Salvando..." : "Salvar"}
+                  </Button>
+                </div>
               </div>
-            ) : <p className="text-sm text-muted-foreground">—</p>}
+            )}
           </div>
+
           <Separator />
           <div className="grid grid-cols-2 gap-4">
             <div>

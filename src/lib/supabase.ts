@@ -100,6 +100,7 @@ export interface Order {
   atualizado_em: string;
   cardapio_web: boolean;
   notified_saiu_entrega_at: string | null;
+  alterado_em: string | null;
   customers?: Customer;
   order_items?: OrderItem[];
 }

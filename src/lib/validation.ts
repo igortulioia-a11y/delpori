@@ -76,6 +76,10 @@ export const notifyOrderStatusSchema = z.object({
   orderId: z.string().uuid("ID do pedido inválido"),
 });
 
+export const notifyKitchenSchema = z.object({
+  orderId: z.string().uuid("ID do pedido inválido"),
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**

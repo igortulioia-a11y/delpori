@@ -87,4 +87,6 @@ export const RATE_LIMITS = {
   sendCampaignMessage: { limit: 60, windowSeconds: 60 },
   /** /api/notify-order-status: 20 notificacoes por hora por usuario (anti-spam WhatsApp) */
   notifyOrderStatus: { limit: 20, windowSeconds: 3600 },
+  /** /api/notify-kitchen: 50 notificacoes por hora (alteracao de pedido pra cozinha) */
+  notifyKitchen: { limit: 50, windowSeconds: 3600 },
 } as const;
