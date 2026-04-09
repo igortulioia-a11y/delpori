@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { supabase } from "@/lib/supabase";
 import { normalizeSlug } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -153,21 +154,34 @@ export default function SettingsPage() {
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoCropSrc, setLogoCropSrc] = useState<string | null>(null);
   const [restaurante, setRestaurante] = useState({
     telefone: "", endereco: "", slug: "", logo_url: "",
   });
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Abre o dialog de crop quando o usuario seleciona o arquivo
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Imagem muito grande", description: "Máximo 2MB", variant: "destructive" });
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Imagem muito grande", description: "Máximo 10MB", variant: "destructive" });
+      e.target.value = "";
       return;
     }
+    const url = URL.createObjectURL(file);
+    setLogoCropSrc(url);
+    // Permite selecionar o mesmo arquivo de novo se cancelar
+    e.target.value = "";
+  };
+
+  // Chamado pelo ImageCropDialog com o Blob JPEG recortado
+  const handleLogoCropComplete = async (blob: Blob) => {
+    if (!user) return;
     setUploadingLogo(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/logo.${ext}`;
-    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
+    const path = `${user.id}/logo.jpg`;
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
     if (error) {
       toast({ title: "Erro ao enviar logo", description: error.message, variant: "destructive" });
     } else {
@@ -179,6 +193,14 @@ export default function SettingsPage() {
       toast({ title: "Logo atualizado!" });
     }
     setUploadingLogo(false);
+  };
+
+  // Limpa o object URL quando o dialog fecha
+  const handleLogoCropOpenChange = (open: boolean) => {
+    if (!open && logoCropSrc) {
+      URL.revokeObjectURL(logoCropSrc);
+      setLogoCropSrc(null);
+    }
   };
 
   const loadProfile = useCallback(async () => {
@@ -393,7 +415,7 @@ export default function SettingsPage() {
                       <label className="cursor-pointer">
                         {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                         {uploadingLogo ? "Enviando..." : "Upload"}
-                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoSelect} />
                       </label>
                     </Button>
                   </div>
@@ -782,6 +804,15 @@ export default function SettingsPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      <ImageCropDialog
+        open={!!logoCropSrc}
+        onOpenChange={handleLogoCropOpenChange}
+        imageSrc={logoCropSrc}
+        aspect={1}
+        title="Ajustar logo"
+        onCropComplete={handleLogoCropComplete}
+      />
     </div>
   );
 }

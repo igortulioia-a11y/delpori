@@ -6,6 +6,7 @@ import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSe
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ImportMenuDialog } from "@/components/ImportMenuDialog";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,7 @@ export default function Products() {
   const [importOpen, setImportOpen] = useState(false);
   const [sortMode, setSortMode] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
+  const [imageCropSrc, setImageCropSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }));
 
@@ -115,40 +117,60 @@ export default function Products() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = filtered.findIndex(p => p.id === active.id);
-    const newIndex = filtered.findIndex(p => p.id === over.id);
+    // Posicoes no array global (nao no filtrado) pra garantir que a reordenacao
+    // reflita no state e no `filtered` derivado via .filter() (que preserva ordem).
+    const oldIndex = products.findIndex(p => p.id === active.id);
+    const newIndex = products.findIndex(p => p.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(filtered, oldIndex, newIndex);
-    // Update ordem in full products array
-    const updatedProducts = products.map(p => {
-      const idx = reordered.findIndex(r => r.id === p.id);
-      return idx !== -1 ? { ...p, ordem: idx } : p;
+    const moved = arrayMove(products, oldIndex, newIndex);
+    // Recalcula `ordem` por categoria com base nas novas posicoes.
+    const catCounters: Record<string, number> = {};
+    const withOrder = moved.map(p => {
+      const cat = p.categoria || "";
+      const idx = catCounters[cat] ?? 0;
+      catCounters[cat] = idx + 1;
+      return { ...p, ordem: idx };
     });
-    setProducts(updatedProducts);
+    setProducts(withOrder);
   };
 
   const saveOrder = async () => {
     if (!user) return;
     setSavingOrder(true);
     const updates = products.map((p, i) => ({ id: p.id, ordem: p.ordem ?? i }));
-    for (const u of updates) {
-      await supabase.from("products").update({ ordem: u.ordem }).eq("id", u.id).eq("user_id", user.id);
-    }
+    const results = await Promise.all(
+      updates.map(u =>
+        supabase.from("products").update({ ordem: u.ordem }).eq("id", u.id).eq("user_id", user.id)
+      )
+    );
     setSavingOrder(false);
+    const firstError = results.find(r => r.error);
+    if (firstError?.error) {
+      toast({ title: "Erro ao salvar ordem", description: firstError.error.message, variant: "destructive" });
+      return;
+    }
     setSortMode(false);
     toast({ title: "Ordem salva!" });
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!user) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Imagem muito grande", description: "Máximo 5MB", variant: "destructive" });
+  // Abre o dialog de crop quando o usuario seleciona o arquivo
+  const handleImageSelect = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Imagem muito grande", description: "Máximo 10MB", variant: "destructive" });
       return;
     }
+    const url = URL.createObjectURL(file);
+    setImageCropSrc(url);
+  };
+
+  // Chamado pelo ImageCropDialog com o Blob JPEG recortado
+  const handleImageCropComplete = async (blob: Blob) => {
+    if (!user) return;
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
+    const path = `${user.id}/${Date.now()}.jpg`;
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(path, blob, { upsert: true, contentType: "image/jpeg" });
     if (error) {
       toast({ title: "Erro ao enviar imagem", description: error.message, variant: "destructive" });
     } else {
@@ -157,6 +179,14 @@ export default function Products() {
       toast({ title: "Imagem enviada!" });
     }
     setUploading(false);
+  };
+
+  // Limpa o object URL quando o dialog de crop fecha
+  const handleImageCropOpenChange = (open: boolean) => {
+    if (!open && imageCropSrc) {
+      URL.revokeObjectURL(imageCropSrc);
+      setImageCropSrc(null);
+    }
   };
 
   const openCreate = () => {
@@ -487,7 +517,7 @@ export default function Products() {
                   className="hidden"
                   onChange={e => {
                     const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
+                    if (file) handleImageSelect(file);
                     e.target.value = "";
                   }}
                 />
@@ -596,6 +626,16 @@ export default function Products() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onImportComplete={loadProducts}
+      />
+
+      {/* Crop Dialog para imagem do produto */}
+      <ImageCropDialog
+        open={!!imageCropSrc}
+        onOpenChange={handleImageCropOpenChange}
+        imageSrc={imageCropSrc}
+        aspect={1}
+        title="Ajustar foto do produto"
+        onCropComplete={handleImageCropComplete}
       />
     </div>
   );
