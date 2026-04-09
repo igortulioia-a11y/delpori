@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/logo-icon.svg" alt="Delpori" className="h-7 w-7" />
+            <img src="/logo-icon.png" alt="Delpori" className="h-7 w-7" />
           </div>
         </header>
 

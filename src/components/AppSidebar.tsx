@@ -43,7 +43,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
     <aside className="flex flex-col w-64 h-screen bg-sidebar border-r border-sidebar-border">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-sidebar-border shrink-0">
-        <img src="/logo-icon.svg" alt="Delpori" className="h-9 w-9" />
+        <img src="/logo-icon.png" alt="Delpori" className="h-9 w-9" />
         <div className="flex flex-col flex-1 min-w-0">
           <span className="text-sm font-semibold text-white">Delpori</span>
           <span className="text-xs text-sidebar-foreground">Gestão de Delivery</span>

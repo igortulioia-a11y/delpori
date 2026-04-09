@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Delpori - Gestão de Delivery",
   description: "Sistema de gestão de delivery com IA no WhatsApp",
-  // Icons: arquivos de convencao em src/app/ (favicon.ico, icon.svg, apple-icon.png)
+  // Icons: arquivos de convencao em src/app/ (favicon.ico, icon.png, apple-icon.png)
   // sao gerenciados automaticamente pelo Next.js App Router.
 };
 

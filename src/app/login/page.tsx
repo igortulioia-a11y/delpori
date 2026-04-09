@@ -89,7 +89,7 @@ export default function LoginPage() {
         <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/10 blur-2xl" />
         <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-white/10 blur-2xl" />
         <div className="relative z-10 max-w-md text-center space-y-8">
-          <img src="/logo-icon.svg" alt="Delpori" className="h-16 w-16 mx-auto drop-shadow-lg" />
+          <img src="/logo-icon.png" alt="Delpori" className="h-16 w-16 mx-auto drop-shadow-lg" />
           <div>
             <h1 className="text-4xl font-bold tracking-tight">Delpori</h1>
             <p className="mt-3 text-lg text-slate-300">CRM inteligente para seu delivery</p>
@@ -117,7 +117,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center gap-3 mb-6">
-            <img src="/logo-icon.svg" alt="Delpori" className="h-14 w-14 drop-shadow-md" />
+            <img src="/logo-icon.png" alt="Delpori" className="h-14 w-14 drop-shadow-md" />
             <h1 className="text-2xl font-bold">Delpori</h1>
           </div>
 
