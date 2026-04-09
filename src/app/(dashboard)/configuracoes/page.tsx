@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Store, Link2, Loader2, Smartphone, CheckCircle2, XCircle,
   RefreshCw, Wifi, WifiOff, QrCode, AlertCircle, Clock,
-  Users, Mail, Trash2, ShieldCheck, UserPlus, Upload,
+  Users, Mail, Trash2, ShieldCheck, UserPlus, Upload, ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -361,9 +361,15 @@ export default function SettingsPage() {
                   placeholder="meu-restaurante"
                 />
                 {restaurante.slug && (
-                  <p className="text-xs text-muted-foreground">
-                    URL do seu cardápio: /cardapio/{restaurante.slug}
-                  </p>
+                  <a
+                    href={`/cardapio/${restaurante.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 hover:underline transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Ver cardápio: /cardapio/{restaurante.slug}
+                  </a>
                 )}
                 <p className="text-xs text-muted-foreground">
                   Use apenas letras minúsculas, números e hífen. Sem espaços ou acentos.

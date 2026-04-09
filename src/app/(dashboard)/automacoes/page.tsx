@@ -704,138 +704,147 @@ export default function Automations() {
             </CardContent>
           </Card>
 
-          {/* Entrega */}
+          {/* Configuracoes de atendimento (entrega + horario + msg fora + pagamento) */}
           <Card className="shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Truck className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base">Entrega</CardTitle>
+                <CardTitle className="text-base">Configurações de atendimento</CardTitle>
               </div>
-              <CardDescription>A IA usa esses valores para informar o cliente sobre frete e prazo</CardDescription>
+              <CardDescription>Entrega, horário, mensagens automáticas e formas de pagamento</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Taxa de entrega (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.50"
-                    value={taxaEntrega}
-                    onChange={e => setTaxaEntrega(e.target.value)}
-                    placeholder="5.00"
-                  />
+            <CardContent className="space-y-6">
+              {/* Entrega */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Entrega</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">A IA usa esses valores para informar o cliente sobre frete e prazo</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Taxa de entrega (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.50"
+                      value={taxaEntrega}
+                      onChange={e => setTaxaEntrega(e.target.value)}
+                      placeholder="5.00"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Tempo estimado (minutos)</Label>
+                    <Input
+                      type="number"
+                      value={tempoEntrega}
+                      onChange={e => setTempoEntrega(e.target.value)}
+                      placeholder="45"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Tempo estimado (minutos)</Label>
+                  <Label className="text-xs text-muted-foreground">Cidade / Região atendida</Label>
                   <Input
-                    type="number"
-                    value={tempoEntrega}
-                    onChange={e => setTempoEntrega(e.target.value)}
-                    placeholder="45"
+                    value={areaEntrega}
+                    onChange={e => setAreaEntrega(e.target.value)}
+                    placeholder="Ex: Piumhi e região"
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Cidade / Região atendida</Label>
-                <Input
-                  value={areaEntrega}
-                  onChange={e => setAreaEntrega(e.target.value)}
-                  placeholder="Ex: Piumhi e região"
+
+              <Separator />
+
+              {/* Horário de funcionamento */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Horário de funcionamento</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Fora do horário, a IA não responde e envia a mensagem automática abaixo</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Restringir por horário</Label>
+                  <Switch checked={schedule.enabled} onCheckedChange={(v) => setSchedule({ ...schedule, enabled: v })} />
+                </div>
+                {schedule.enabled && (
+                  <div className="flex items-center gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Início</Label>
+                      <Input type="time" value={schedule.start} onChange={(e) => setSchedule({ ...schedule, start: e.target.value })} className="w-32" />
+                    </div>
+                    <span className="text-muted-foreground mt-5">até</span>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Fim</Label>
+                      <Input type="time" value={schedule.end} onChange={(e) => setSchedule({ ...schedule, end: e.target.value })} className="w-32" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Mensagem fora do horário */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Mensagem fora do horário</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Enviada automaticamente quando cliente manda mensagem fora do horário</p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Ativada</Label>
+                  <Switch checked={msgForaHoraActive} onCheckedChange={setMsgForaHoraActive} />
+                </div>
+                <Textarea
+                  value={msgForaHora}
+                  onChange={(e) => setMsgForaHora(e.target.value)}
+                  rows={3}
+                  className="text-sm"
+                  disabled={!msgForaHoraActive}
+                  placeholder="Ex: Olá! Estamos fechados no momento. Nosso horário é das 11h às 23h."
                 />
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Horário */}
-          <Card className="shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base">Horário de funcionamento</CardTitle>
-              </div>
-              <CardDescription>Fora do horário, a IA não responde e envia a mensagem automática abaixo</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">Restringir por horário</Label>
-                <Switch checked={schedule.enabled} onCheckedChange={(v) => setSchedule({ ...schedule, enabled: v })} />
-              </div>
-              {schedule.enabled && (
-                <div className="flex items-center gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Início</Label>
-                    <Input type="time" value={schedule.start} onChange={(e) => setSchedule({ ...schedule, start: e.target.value })} className="w-32" />
+              <Separator />
+
+              {/* Formas de Pagamento */}
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Formas de pagamento</h3>
                   </div>
-                  <span className="text-muted-foreground mt-5">até</span>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Fim</Label>
-                    <Input type="time" value={schedule.end} onChange={(e) => setSchedule({ ...schedule, end: e.target.value })} className="w-32" />
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Selecione as formas aceitas. Aparece no checkout e a IA informa automaticamente.</p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Mensagem fora do horário */}
-          <Card className="shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base">Mensagem fora do horário</CardTitle>
-              </div>
-              <CardDescription>Enviada automaticamente quando cliente manda mensagem fora do horário</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between mb-3">
-                <Label className="text-sm">Ativada</Label>
-                <Switch checked={msgForaHoraActive} onCheckedChange={setMsgForaHoraActive} />
-              </div>
-              <Textarea
-                value={msgForaHora}
-                onChange={(e) => setMsgForaHora(e.target.value)}
-                rows={3}
-                className="text-sm"
-                disabled={!msgForaHoraActive}
-                placeholder="Ex: Olá! Estamos fechados no momento. Nosso horário é das 11h às 23h."
-              />
-            </CardContent>
-          </Card>
-
-          {/* Formas de Pagamento */}
-          <Card className="shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base">Formas de pagamento</CardTitle>
-              </div>
-              <CardDescription>Selecione as formas aceitas. Aparece no checkout e a IA informa automaticamente.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  { value: "pix", label: "PIX" },
-                  { value: "credito", label: "Cartão de crédito" },
-                  { value: "debito", label: "Cartão de débito" },
-                  { value: "dinheiro", label: "Dinheiro" },
-                  { value: "vale_refeicao", label: "Vale-refeição" },
-                ].map(opt => {
-                  const enabled = formasPagamento.split(",").map(s => s.trim()).filter(Boolean);
-                  const isChecked = enabled.includes(opt.value);
-                  return (
-                    <div key={opt.value} className="flex items-center justify-between">
-                      <Label className="text-sm">{opt.label}</Label>
-                      <Switch
-                        checked={isChecked}
-                        onCheckedChange={v => {
-                          const current = formasPagamento.split(",").map(s => s.trim()).filter(Boolean);
-                          const next = v ? [...current, opt.value] : current.filter(x => x !== opt.value);
-                          setFormasPagamento(next.join(","));
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-                <Separator className="my-2" />
+                <div className="space-y-3">
+                  {[
+                    { value: "pix", label: "PIX" },
+                    { value: "credito", label: "Cartão de crédito" },
+                    { value: "debito", label: "Cartão de débito" },
+                    { value: "dinheiro", label: "Dinheiro" },
+                    { value: "vale_refeicao", label: "Vale-refeição" },
+                  ].map(opt => {
+                    const enabled = formasPagamento.split(",").map(s => s.trim()).filter(Boolean);
+                    const isChecked = enabled.includes(opt.value);
+                    return (
+                      <div key={opt.value} className="flex items-center justify-between">
+                        <Label className="text-sm">{opt.label}</Label>
+                        <Switch
+                          checked={isChecked}
+                          onCheckedChange={v => {
+                            const current = formasPagamento.split(",").map(s => s.trim()).filter(Boolean);
+                            const next = v ? [...current, opt.value] : current.filter(x => x !== opt.value);
+                            setFormasPagamento(next.join(","));
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm">Detalhes para a IA (chave PIX, troco, etc.)</Label>
                   <Textarea
@@ -848,18 +857,20 @@ export default function Automations() {
                   <p className="text-xs text-muted-foreground">A IA usa essas informações para orientar o cliente sobre pagamento</p>
                 </div>
               </div>
+
+              <Separator />
+
+              {/* Save */}
+              <Button
+                className="w-full bg-primary hover:bg-primary/90 text-white gap-1.5"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+                {saving ? "Salvando..." : saved ? "Salvo!" : "Salvar configurações"}
+              </Button>
             </CardContent>
           </Card>
-
-          {/* Save */}
-          <Button
-            className="w-full bg-primary hover:bg-primary/90 text-white gap-1.5"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-            {saving ? "Salvando..." : saved ? "Salvo!" : "Salvar configurações"}
-          </Button>
 
           {/* ── Promoção do Dia ─────────────────────────────────────────── */}
           <Card className="shadow-sm">

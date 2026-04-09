@@ -275,27 +275,27 @@ function MenuDigitalInner() {
                   <h3 className="font-bold text-sm leading-tight">{product.nome}</h3>
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{product.descricao}</p>
                 </div>
-                <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center justify-between gap-2 mt-2">
                   {isSpecial ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground line-through">R$ {product.preco.toFixed(2).replace(".", ",")}</span>
-                      <span className="font-extrabold text-base text-orange-500">R$ {dailySpecial.preco_promocional.toFixed(2).replace(".", ",")}</span>
+                    <div className="flex flex-col min-w-0 leading-tight">
+                      <span className="text-[11px] text-muted-foreground line-through whitespace-nowrap">R$ {product.preco.toFixed(2).replace(".", ",")}</span>
+                      <span className="font-extrabold text-base text-orange-500 whitespace-nowrap">R$ {dailySpecial.preco_promocional.toFixed(2).replace(".", ",")}</span>
                     </div>
                   ) : (
-                    <span className="font-extrabold text-base text-primary">
+                    <span className="font-extrabold text-base text-primary whitespace-nowrap">
                       R$ {product.preco.toFixed(2).replace(".", ",")}
                     </span>
                   )}
                   {quantity === 0 ? (
                     <Button
                       size="sm"
-                      className="h-9 px-4 text-xs rounded-full shadow-sm font-semibold"
+                      className="h-9 px-4 text-xs rounded-full shadow-sm font-semibold shrink-0"
                       onClick={() => handleAdd(product)}
                     >
                       <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
                     </Button>
                   ) : (
-                    <div className="flex items-center gap-2.5 bg-secondary rounded-full px-1 py-0.5">
+                    <div className="flex items-center gap-2.5 bg-secondary rounded-full px-1 py-0.5 shrink-0">
                       <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive" onClick={() => updateQuantity(product.id, quantity - 1)}>
                         <Minus className="h-3 w-3" />
                       </Button>

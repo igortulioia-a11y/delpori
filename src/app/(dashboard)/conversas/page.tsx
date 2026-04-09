@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search, Send, Tag, Plus, X, UtensilsCrossed, Loader2, RefreshCw,
   Bot, UserRound, Phone, ExternalLink, MessageCircle,
@@ -169,7 +170,9 @@ function getConversationDateGroups(conversations: ConversationRow[]) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function Conversations() {
+function ConversationsInner() {
+  const searchParams = useSearchParams();
+  const telParam = searchParams.get("tel");
   const { user, session, profile } = useAuth();
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -222,7 +225,7 @@ export default function Conversations() {
         lastMessage: row.ultima_mensagem || "Sem mensagens",
       }));
       setConversations(mapped);
-      if (!hasAutoSelected.current && mapped.length > 0) {
+      if (!hasAutoSelected.current && mapped.length > 0 && !telParam) {
         if (window.innerWidth >= 768) {
           setSelectedId(mapped[0].id);
         }
@@ -230,7 +233,7 @@ export default function Conversations() {
       }
     }
     setLoadingConvs(false);
-  }, [user?.id]);
+  }, [user?.id, telParam]);
 
   const loadMessages = useCallback(async (convId: string) => {
     setLoadingMsgs(true);
@@ -264,6 +267,21 @@ export default function Conversations() {
   }, []);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  // Auto-seleciona a conversa correspondente ao telefone passado em ?tel=
+  // (vindo da pagina de pedidos via botao "Conferir Pix")
+  useEffect(() => {
+    if (!telParam || conversations.length === 0) return;
+    const normalized = telParam.replace(/\D/g, "");
+    if (!normalized) return;
+    const match = conversations.find(
+      (c) => c.cliente_tel.replace(/\D/g, "") === normalized
+    );
+    if (match) {
+      setSelectedId(match.id);
+      hasAutoSelected.current = true;
+    }
+  }, [telParam, conversations]);
 
   useEffect(() => {
     if (selectedId) loadMessages(selectedId);
@@ -981,5 +999,13 @@ export default function Conversations() {
         </Sheet>
       )}
     </div>
+  );
+}
+
+export default function Conversations() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <ConversationsInner />
+    </Suspense>
   );
 }

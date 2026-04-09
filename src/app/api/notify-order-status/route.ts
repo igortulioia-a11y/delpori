@@ -5,16 +5,17 @@ import { parseBody, notifyOrderStatusSchema } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 const MSG_SAIU_ENTREGA = "Seu pedido saiu para entrega";
+const MSG_CANCELADO = "Seu pedido foi cancelado";
 
 /**
- * Notifica o cliente via WhatsApp quando o pedido sai pra entrega.
+ * Notifica o cliente via WhatsApp quando o pedido muda de status.
  * Chamada fire-and-forget pelo frontend em pedidos/page.tsx quando o
- * status muda de `em_preparo` para `saiu_entrega`.
+ * status muda para `saiu_entrega` ou `cancelado`.
  *
  * Protecoes contra spam:
  * - Rate limit 20/hora por usuario
- * - `notified_saiu_entrega_at` garante 1 notificacao por pedido mesmo se
- *   o dono trocar o status ida e volta
+ * - `notified_saiu_entrega_at` / `notified_cancelado_at` garantem 1
+ *   notificacao por pedido mesmo se o dono trocar o status ida e volta
  * - Ignora pedidos criados ha mais de 4 horas (evita notificar pedidos
  *   antigos presos em `em_preparo` quando o dono finalmente atualiza)
  */
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .select(
-        "id, status, criado_em, notified_saiu_entrega_at, customers ( telefone )"
+        "id, status, criado_em, notified_saiu_entrega_at, notified_cancelado_at, customers ( telefone )"
       )
       .eq("id", parsed.data.orderId)
       .eq("user_id", userId)
@@ -59,16 +60,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validacoes (skipa em vez de erro — chamada fire-and-forget do frontend)
-    if (order.status !== "saiu_entrega") {
+    // Determina mensagem e campo de controle baseado no status atual
+    let mensagem: string;
+    let notifiedField: "notified_saiu_entrega_at" | "notified_cancelado_at";
+
+    if (order.status === "saiu_entrega") {
+      if (order.notified_saiu_entrega_at) {
+        return NextResponse.json({ skipped: true, reason: "ja_notificado" });
+      }
+      mensagem = MSG_SAIU_ENTREGA;
+      notifiedField = "notified_saiu_entrega_at";
+    } else if (order.status === "cancelado") {
+      if (order.notified_cancelado_at) {
+        return NextResponse.json({ skipped: true, reason: "ja_notificado" });
+      }
+      mensagem = MSG_CANCELADO;
+      notifiedField = "notified_cancelado_at";
+    } else {
       return NextResponse.json({
         skipped: true,
-        reason: "status_diferente_de_saiu_entrega",
+        reason: "status_nao_notificavel",
       });
-    }
-
-    if (order.notified_saiu_entrega_at) {
-      return NextResponse.json({ skipped: true, reason: "ja_notificado" });
     }
 
     // Anti-fallback: nao notificar pedidos antigos (>4h)
@@ -98,7 +110,7 @@ export async function POST(request: Request) {
     }
 
     // Enviar via Evolution
-    const result = await sendWhatsApp(userId, telefone, MSG_SAIU_ENTREGA);
+    const result = await sendWhatsApp(userId, telefone, mensagem);
     if (!result.success) {
       return NextResponse.json(
         { error: "Falha ao enviar mensagem" },
@@ -107,15 +119,15 @@ export async function POST(request: Request) {
     }
 
     // Marcar como notificado PRIMEIRO (anti-race: se duas requisicoes vierem
-    // ao mesmo tempo, a segunda vai ver `notified_saiu_entrega_at` preenchido)
+    // ao mesmo tempo, a segunda vai ver o campo preenchido)
     const { error: updateError } = await supabaseAdmin
       .from("orders")
-      .update({ notified_saiu_entrega_at: new Date().toISOString() })
+      .update({ [notifiedField]: new Date().toISOString() })
       .eq("id", order.id)
       .eq("user_id", userId);
 
     if (updateError) {
-      console.error("Erro ao marcar notified_saiu_entrega_at:", updateError);
+      console.error(`Erro ao marcar ${notifiedField}:`, updateError);
     }
 
     // Salvar no historico de messages (aparece na conversa do cliente no painel)
@@ -131,7 +143,7 @@ export async function POST(request: Request) {
         conversation_id: conversation.id,
         user_id: userId,
         remetente: "ia",
-        conteudo: MSG_SAIU_ENTREGA,
+        conteudo: mensagem,
       });
     }
 

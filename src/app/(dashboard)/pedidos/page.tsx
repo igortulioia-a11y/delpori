@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   ClipboardList, Eye,
   ChevronRight, ChevronLeft, Loader2, RefreshCw,
-  ArrowUpDown, ArrowUp, ArrowDown,
+  ArrowUpDown, ArrowUp, ArrowDown, MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ORDER_STATUS, type OrderStatus } from "@/lib/status-colors";
@@ -30,6 +31,7 @@ interface Order {
   status: OrderStatus;
   total: number;
   payment_method: string;
+  payment_raw: string;
   address: string;
   items: { nome: string; qty: number; preco: number }[];
   created_at: string;
@@ -126,6 +128,7 @@ export default function Orders() {
         status: row.status as OrderStatus,
         total: row.total ?? 0,
         payment_method: row.pagamento ? (pagamentoLabel[row.pagamento] || row.pagamento) : "",
+        payment_raw: row.pagamento || "",
         address: row.endereco_entrega ?? "",
         items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit })),
         created_at: row.criado_em,
@@ -167,9 +170,14 @@ export default function Orders() {
 
     toast({ title: "Status atualizado", description: `Pedido → ${ORDER_STATUS[newStatus]?.label}` });
 
-    // Notifica o cliente quando o pedido sai pra entrega (fire-and-forget)
-    // So dispara na transicao em_preparo → saiu_entrega pra evitar spam
-    if (oldStatus === "em_preparo" && newStatus === "saiu_entrega") {
+    // Notifica o cliente via WhatsApp nas transicoes relevantes (fire-and-forget):
+    // - em_preparo → saiu_entrega: "Seu pedido saiu para entrega"
+    // - qualquer → cancelado: "Seu pedido foi cancelado"
+    const shouldNotify =
+      (oldStatus === "em_preparo" && newStatus === "saiu_entrega") ||
+      (newStatus === "cancelado" && oldStatus !== "cancelado");
+
+    if (shouldNotify) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token) {
@@ -267,30 +275,45 @@ export default function Orders() {
                 {colOrders.length === 0 && (
                   <div className="border border-dashed rounded-lg p-3 text-center text-xs text-muted-foreground">Nenhum pedido</div>
                 )}
-                {colOrders.map(order => (
-                  <div key={order.id} className="border rounded-lg px-3 py-2.5 flex items-center justify-between bg-card hover:shadow-sm transition-shadow">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm tabular-nums">#{order.numero}</span>
-                        <span className="text-sm text-muted-foreground truncate">{order.customer_name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto shrink-0">{formatHora(order.created_at)}</span>
+                {colOrders.map(order => {
+                  const isPix = order.payment_raw?.toLowerCase().includes("pix") && !!order.customer_phone;
+                  return (
+                  <div key={order.id} className="border rounded-lg px-3 py-2.5 bg-card hover:shadow-sm transition-shadow space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm tabular-nums">#{order.numero}</span>
+                          <span className="text-sm text-muted-foreground truncate">{order.customer_name}</span>
+                          <span className="text-xs text-muted-foreground ml-auto shrink-0">{formatHora(order.created_at)}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <span className="text-xs text-muted-foreground truncate">{formatItems(order.items)}</span>
+                          <span className="text-sm font-bold tabular-nums ml-2 shrink-0">R$ {order.total.toFixed(2).replace(".", ",")}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between mt-0.5">
-                        <span className="text-xs text-muted-foreground truncate">{formatItems(order.items)}</span>
-                        <span className="text-sm font-bold tabular-nums ml-2 shrink-0">R$ {order.total.toFixed(2).replace(".", ",")}</span>
-                      </div>
+                      {nextStatus[order.status] && (
+                        <Button
+                          size="sm" variant="ghost"
+                          className="h-6 px-1.5 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => changeStatus(order.id, nextStatus[order.status]!)}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
-                    {nextStatus[order.status] && (
-                      <Button
-                        size="sm" variant="ghost"
-                        className="h-6 px-1.5 ml-2 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={() => changeStatus(order.id, nextStatus[order.status]!)}
-                      >
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Button>
+                    {isPix && (
+                      <div className="flex justify-end">
+                        <Button asChild size="sm" variant="default" className="h-6 px-2 text-[11px] rounded-full">
+                          <Link href={`/conversas?tel=${encodeURIComponent(order.customer_phone)}`}>
+                            <MessageCircle className="h-3 w-3 mr-1" />
+                            Conferir Pix
+                          </Link>
+                        </Button>
+                      </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 {totalCol > 5 && (
                   <button
                     onClick={() => { setFiltroStatus(col.key); setPage(1); }}
@@ -494,6 +517,17 @@ function OrderDetailSheet({ order, onStatusChange }: { order: Order; onStatusCha
             <p className="text-xs font-medium text-muted-foreground mb-1">Pagamento</p>
             <p className="text-sm">{order.payment_method || "—"}</p>
           </div>
+          {order.payment_raw?.toLowerCase().includes("pix") && order.customer_phone && (
+            <>
+              <Separator />
+              <Button asChild variant="default" className="w-full">
+                <Link href={`/conversas?tel=${encodeURIComponent(order.customer_phone)}`}>
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Conferir Pix
+                </Link>
+              </Button>
+            </>
+          )}
           <Separator />
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-2">Atualizar status</p>
