@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, ClipboardList, Package,
-  Zap, Settings, UtensilsCrossed, LogOut, Sun, Moon,
+  Zap, Settings, UtensilsCrossed, LogOut, Sun, Moon, Bell, BellOff,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
 
 const allNavItems = [
@@ -28,6 +29,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
   const pathname = usePathname();
   const { user, profile, logout, teamRole, permissoes } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { soundEnabled, toggleSound } = useNotifications();
 
   // Owner vê tudo; member vê só as abas permitidas
   const navItems = teamRole === "owner"
@@ -46,6 +48,15 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
           <span className="text-sm font-semibold text-white">Delpori</span>
           <span className="text-xs text-sidebar-foreground">Gestão de Delivery</span>
         </div>
+        {/* Toggle de som de notificacao */}
+        <button
+          onClick={toggleSound}
+          className="text-sidebar-foreground hover:text-white transition-colors shrink-0"
+          title={soundEnabled ? "Desativar sons" : "Ativar sons"}
+          aria-label={soundEnabled ? "Desativar sons de notificação" : "Ativar sons de notificação"}
+        >
+          {soundEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+        </button>
         {/* Dark mode toggle no header */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

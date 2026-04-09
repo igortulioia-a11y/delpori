@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import { useState, Component, type ReactNode, type ErrorInfo } from "react";
 
 // Error boundary global — captura crashes do React (WebView, storage, etc)
@@ -57,8 +58,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <TooltipProvider>
             <AuthProvider>
-              <Toaster />
-              {children}
+              <NotificationProvider>
+                <Toaster />
+                {children}
+              </NotificationProvider>
             </AuthProvider>
           </TooltipProvider>
         </ThemeProvider>
