@@ -273,7 +273,7 @@ function MenuDigitalInner() {
               <div className="flex-1 min-w-0 flex flex-col justify-between">
                 <div>
                   <h3 className="font-bold text-sm leading-tight">{product.nome}</h3>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{product.descricao}</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-line">{product.descricao}</p>
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-2">
                   {isSpecial ? (
