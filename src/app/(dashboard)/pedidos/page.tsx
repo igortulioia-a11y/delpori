@@ -329,16 +329,27 @@ export default function Orders() {
                         </Button>
                       )}
                     </div>
-                    {isPix && (
-                      <div className="flex justify-end">
-                        <Button asChild size="sm" variant="default" className="h-6 px-2 text-[11px] rounded-full">
+                    <div className="flex items-center justify-start gap-1.5">
+                      <OrderDetailSheet
+                        order={order}
+                        onStatusChange={changeStatus}
+                        onOrderEdited={loadOrders}
+                        trigger={
+                          <Button size="sm" variant="outline" className="h-6 px-2.5 text-[11px] rounded-full">
+                            <Eye className="h-3 w-3 mr-1" />
+                            Abrir
+                          </Button>
+                        }
+                      />
+                      {isPix && (
+                        <Button asChild size="sm" variant="default" className="h-6 px-2.5 text-[11px] rounded-full">
                           <Link href={`/conversas?tel=${encodeURIComponent(order.customer_phone)}`}>
                             <MessageCircle className="h-3 w-3 mr-1" />
                             Conferir Pix
                           </Link>
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                   );
                 })}
@@ -499,10 +510,11 @@ export default function Orders() {
   );
 }
 
-function OrderDetailSheet({ order, onStatusChange, onOrderEdited }: {
+function OrderDetailSheet({ order, onStatusChange, onOrderEdited, trigger }: {
   order: Order;
   onStatusChange: (id: string, status: OrderStatus) => void;
   onOrderEdited: () => void;
+  trigger?: React.ReactNode;
 }) {
   const { user } = useAuth();
   const config = ORDER_STATUS[order.status];
@@ -665,7 +677,7 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited }: {
   return (
     <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="h-3.5 w-3.5" /></Button>
+        {trigger ?? <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="h-3.5 w-3.5" /></Button>}
       </SheetTrigger>
       <SheetContent className="sm:max-w-md overflow-y-auto">
         <SheetHeader>
