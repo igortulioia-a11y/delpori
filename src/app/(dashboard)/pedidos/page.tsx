@@ -194,10 +194,25 @@ export default function Orders() {
   }, [user?.id]);
 
   const changeStatus = async (orderId: string, newStatus: OrderStatus) => {
-    // Captura o status anterior ANTES do update otimista (pra detectar transicao)
-    const oldStatus = orders.find(o => o.id === orderId)?.status;
+    // Captura o status anterior e o pedido ANTES do update otimista
+    const currentOrder = orders.find(o => o.id === orderId);
+    const oldStatus = currentOrder?.status;
 
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+
+    // Auto-print ao passar pra "em_preparo" (primeira vez). Chamado SINCRONAMENTE
+    // antes do await pra manter o user-gesture context e evitar popup blocker.
+    if (currentOrder && newStatus === "em_preparo" && oldStatus !== "em_preparo") {
+      const ok = printOrder(currentOrder, restaurante);
+      if (!ok) {
+        toast({
+          title: "Popup bloqueado",
+          description: "Habilite popups no navegador pra impressao automatica funcionar.",
+          variant: "destructive",
+        });
+      }
+    }
+
     const { error } = await supabase
       .from("orders")
       .update({ status: newStatus, atualizado_em: new Date().toISOString() })

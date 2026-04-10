@@ -371,17 +371,22 @@ export function buildReceiptHTML(
 export function printOrder(
   order: OrderForPrint,
   restaurante: RestauranteForPrint,
-): void {
+): boolean {
   const html = buildReceiptHTML(order, restaurante);
   const popup = window.open("", "_blank", "width=400,height=700");
   if (!popup) {
-    // Popup bloqueado: fallback — abre numa nova aba
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    return;
+    // Popup bloqueado: fallback — tenta abrir numa nova aba via Blob
+    try {
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const fallback = window.open(url, "_blank");
+      return !!fallback;
+    } catch {
+      return false;
+    }
   }
   popup.document.open();
   popup.document.write(html);
   popup.document.close();
+  return true;
 }
