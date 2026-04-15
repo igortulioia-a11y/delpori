@@ -5,3 +5,6 @@ node_modules/
 .env.production.local
 .vercel/
 *.tsbuildinfo
+
+# Backups locais / trabalho de bastidor (nao commitar)
+memory/
