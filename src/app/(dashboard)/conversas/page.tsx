@@ -269,7 +269,7 @@ function ConversationsInner() {
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   // Auto-seleciona a conversa correspondente ao telefone passado em ?tel=
-  // (vindo da pagina de pedidos via botao "Conferir Pix")
+  // (util para links diretos que abrem uma conversa especifica)
   useEffect(() => {
     if (!telParam || conversations.length === 0) return;
     const normalized = telParam.replace(/\D/g, "");

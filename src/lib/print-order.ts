@@ -12,7 +12,7 @@ export interface OrderForPrint {
   payment_method: string;
   payment_raw: string;
   address: string;
-  items: { nome: string; qty: number; preco: number }[];
+  items: { nome: string; qty: number; preco: number; obs?: string }[];
   created_at: string;
   alterado_em: string | null;
   status?: string;
@@ -82,7 +82,7 @@ export function buildReceiptHTML(
       (i) => `
       <tr class="item">
         <td class="item-qty">${i.qty}x</td>
-        <td class="item-nome">${escapeHtml(i.nome)}</td>
+        <td class="item-nome">${escapeHtml(i.nome)}${i.obs ? `<div class="item-obs">** ${escapeHtml(i.obs)} **</div>` : ""}</td>
         <td class="item-preco">${formatMoney(i.preco * i.qty)}</td>
       </tr>`,
     )
@@ -114,7 +114,7 @@ export function buildReceiptHTML(
         <div class="section">
           <div class="label">PAGAMENTO</div>
           <div class="value">PIX</div>
-          <div class="badge">*** conferir comprovante ***</div>
+          <div class="badge">*** receber na maquininha ***</div>
         </div>`;
     }
     if (isDinheiro) {
@@ -239,6 +239,12 @@ export function buildReceiptHTML(
   }
   .item-nome {
     text-align: left;
+  }
+  .item-obs {
+    font-weight: bold;
+    font-size: 3.5mm;
+    margin-top: 0.5mm;
+    text-transform: uppercase;
   }
   .item-preco {
     text-align: right;

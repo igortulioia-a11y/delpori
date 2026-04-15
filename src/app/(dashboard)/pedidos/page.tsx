@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import Link from "next/link";
 import {
   ClipboardList, Eye,
   ChevronRight, ChevronLeft, Loader2, RefreshCw,
@@ -28,6 +28,7 @@ interface OrderItemLocal {
   nome: string;
   qty: number;
   preco: number;
+  obs?: string;
 }
 
 interface Order {
@@ -83,7 +84,10 @@ function formatHora(dateStr: string) {
 
 function formatItems(items: Order["items"]) {
   if (!items || !Array.isArray(items)) return "—";
-  return items.map(i => `${i.qty}x ${i.nome}`).join(", ");
+  return items.map(i => {
+    const obsText = i.obs ? ` (${i.obs})` : "";
+    return `${i.qty}x ${i.nome}${obsText}`;
+  }).join(", ");
 }
 
 // ─── Sortable Header ────────────────────────────────────────────────────────
@@ -153,7 +157,7 @@ export default function Orders() {
         payment_method: row.pagamento ? (pagamentoLabel[row.pagamento] || row.pagamento) : "",
         payment_raw: row.pagamento || "",
         address: row.endereco_entrega ?? "",
-        items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit })),
+        items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit, obs: i.observacao || "" })),
         created_at: row.criado_em,
         alterado_em: row.alterado_em,
       }));
@@ -333,7 +337,6 @@ export default function Orders() {
                   <div className="border border-dashed rounded-lg p-3 text-center text-xs text-muted-foreground">Nenhum pedido</div>
                 )}
                 {colOrders.map(order => {
-                  const isPix = order.payment_raw?.toLowerCase().includes("pix") && !!order.customer_phone;
                   const isAltered = !!order.alterado_em && !["entregue", "cancelado"].includes(order.status);
                   return (
                   <div key={order.id} className="border rounded-lg px-3 py-2.5 bg-card hover:shadow-sm transition-shadow space-y-1.5">
@@ -377,11 +380,11 @@ export default function Orders() {
                           </Button>
                         }
                       />
-                      {isPix && (
-                        <Button asChild size="sm" variant="default" className="h-6 px-2.5 text-[11px] rounded-full">
+                      {order.customer_phone && (
+                        <Button asChild size="sm" variant="outline" className="h-6 px-2.5 text-[11px] rounded-full">
                           <Link href={`/conversas?tel=${encodeURIComponent(order.customer_phone)}`}>
                             <MessageCircle className="h-3 w-3 mr-1" />
-                            Conferir Pix
+                            Conversa
                           </Link>
                         </Button>
                       )}
@@ -658,6 +661,7 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
         nome: it.nome,
         quantidade: it.qty,
         preco_unit: it.preco,
+        observacao: it.obs || null,
       })));
 
     if (insErr) {
@@ -764,11 +768,16 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
             {!editMode ? (
               // VIEW MODE
               order.items?.length > 0 ? (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {order.items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span>{item.qty}x {item.nome}</span>
-                      <span className="tabular-nums text-muted-foreground">R$ {(item.preco * item.qty).toFixed(2).replace(".", ",")}</span>
+                    <div key={i} className="flex justify-between gap-2 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <div>{item.qty}x {item.nome}</div>
+                        {item.obs && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400 italic mt-0.5">Obs: {item.obs}</div>
+                        )}
+                      </div>
+                      <span className="tabular-nums text-muted-foreground shrink-0">R$ {(item.preco * item.qty).toFixed(2).replace(".", ",")}</span>
                     </div>
                   ))}
                 </div>
@@ -901,13 +910,13 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
             <p className="text-xs font-medium text-muted-foreground mb-1">Pagamento</p>
             <p className="text-sm">{order.payment_method || "—"}</p>
           </div>
-          {order.payment_raw?.toLowerCase().includes("pix") && order.customer_phone && (
+          {order.customer_phone && (
             <>
               <Separator />
-              <Button asChild variant="default" className="w-full">
+              <Button asChild variant="outline" className="w-full">
                 <Link href={`/conversas?tel=${encodeURIComponent(order.customer_phone)}`}>
                   <MessageCircle className="h-4 w-4 mr-2" />
-                  Conferir Pix
+                  Abrir conversa
                 </Link>
               </Button>
             </>
