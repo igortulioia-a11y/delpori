@@ -78,8 +78,54 @@ const statusOrder: Record<OrderStatus, number> = {
   novo: 0, confirmado: 1, em_preparo: 2, saiu_entrega: 3, entregue: 4, cancelado: 5,
 };
 
-function formatHora(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+// Smart display: "10:42" se hoje, "Ontem 10:42" se ontem,
+// "14/04 10:42" se este ano, "14/04/25 10:42" se ano passado.
+function formatOrderDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (dDay.getTime() === today.getTime()) return hora;
+  if (dDay.getTime() === yesterday.getTime()) return `Ontem ${hora}`;
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${hora}`;
+  }
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getFullYear()).slice(-2)} ${hora}`;
+}
+
+// Data completa pro sheet de detalhes: "14/04/2026 • 10:42"
+function formatOrderDateTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const data = d.toLocaleDateString("pt-BR");
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${data} • ${hora}`;
+}
+
+// Calcula range de datas para o filtro (inicio/fim em ISO).
+// "tudo" retorna from vazio (sem filtro de data).
+type DateFilter = "hoje" | "ontem" | "7d" | "30d" | "tudo";
+function getDateRange(filter: DateFilter): { fromISO?: string; toISO?: string } {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (filter === "tudo") return {};
+  if (filter === "hoje") {
+    return { fromISO: startOfToday.toISOString() };
+  }
+  if (filter === "ontem") {
+    const startOfYesterday = new Date(startOfToday.getTime() - 86400000);
+    return { fromISO: startOfYesterday.toISOString(), toISO: startOfToday.toISOString() };
+  }
+  if (filter === "7d") {
+    const d = new Date(startOfToday.getTime() - 6 * 86400000); // inclui hoje
+    return { fromISO: d.toISOString() };
+  }
+  if (filter === "30d") {
+    const d = new Date(startOfToday.getTime() - 29 * 86400000);
+    return { fromISO: d.toISOString() };
+  }
+  return {};
 }
 
 function formatItems(items: Order["items"]) {
@@ -118,17 +164,41 @@ function SortableHead({ label, sortKey, currentSort, currentDir, onSort, classNa
 
 export default function Orders() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);          // pagina atual da tabela
+  const [kanbanOrders, setKanbanOrders] = useState<Order[]>([]); // pedidos ativos (kanban)
+  const [totalCount, setTotalCount] = useState(0);              // total de pedidos do filtro atual (server)
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<OrderStatus | "Todos">("Todos");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("hoje");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [perPage, setPerPage] = useState(10);
   const [page, setPage] = useState(1);
   const [restaurante, setRestaurante] = useState<RestauranteForPrint>({ nome: "Delpori" });
 
-  const loadOrders = useCallback(async () => {
-    if (!user) { setLoading(false); return; }
+  const mapOrderRow = (row: any): Order => ({
+    id: row.id,
+    numero: row.numero ?? 0,
+    customer_id: row.customer_id,
+    customer_name: row.customers?.nome ?? "Cliente",
+    customer_phone: row.customers?.telefone ?? "",
+    status: row.status as OrderStatus,
+    total: row.total ?? 0,
+    subtotal: row.subtotal ?? 0,
+    taxa_entrega: row.taxa_entrega ?? 0,
+    desconto: row.desconto ?? 0,
+    payment_method: row.pagamento ? (pagamentoLabel[row.pagamento] || row.pagamento) : "",
+    payment_raw: row.pagamento || "",
+    address: row.endereco_entrega ?? "",
+    items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit, obs: i.observacao || "" })),
+    created_at: row.criado_em,
+    alterado_em: row.alterado_em,
+  });
+
+  // Carrega pedidos ativos pro kanban (novo, em_preparo, saiu_entrega).
+  // Nao filtra por data nem pagina — kanban e operacao real-time.
+  const loadKanbanOrders = useCallback(async () => {
+    if (!user) return;
     const { data, error } = await supabase
       .from("orders")
       .select(`
@@ -137,36 +207,59 @@ export default function Orders() {
         order_items ( nome, quantidade, preco_unit, observacao )
       `)
       .eq("user_id", user.id)
+      .in("status", ["novo", "em_preparo", "saiu_entrega"])
       .order("criado_em", { ascending: false })
-      .limit(100);
+      .limit(200);
+    if (error) {
+      toast({ title: "Erro ao carregar kanban", description: error.message, variant: "destructive" });
+      return;
+    }
+    setKanbanOrders((data || []).map(mapOrderRow));
+  }, [user?.id]);
+
+  // Carrega a pagina atual da tabela com filtros de data + status + paginacao server-side.
+  const loadTableOrders = useCallback(async () => {
+    if (!user) { setLoading(false); return; }
+    const { fromISO, toISO } = getDateRange(dateFilter);
+    const from = (page - 1) * perPage;
+    const to = from + perPage - 1;
+
+    let query = supabase
+      .from("orders")
+      .select(`
+        id, numero, customer_id, status, total, subtotal, taxa_entrega, desconto, pagamento, endereco_entrega, criado_em, alterado_em,
+        customers ( nome, telefone ),
+        order_items ( nome, quantidade, preco_unit, observacao )
+      `, { count: "exact" })
+      .eq("user_id", user.id);
+
+    if (fromISO) query = query.gte("criado_em", fromISO);
+    if (toISO) query = query.lt("criado_em", toISO);
+    if (filtroStatus !== "Todos") query = query.eq("status", filtroStatus);
+
+    const { data, error, count } = await query
+      .order("criado_em", { ascending: false })
+      .range(from, to);
 
     if (error) {
       toast({ title: "Erro ao carregar pedidos", description: error.message, variant: "destructive" });
     } else {
-      const mapped: Order[] = (data || []).map((row: any) => ({
-        id: row.id,
-        numero: row.numero ?? 0,
-        customer_id: row.customer_id,
-        customer_name: row.customers?.nome ?? "Cliente",
-        customer_phone: row.customers?.telefone ?? "",
-        status: row.status as OrderStatus,
-        total: row.total ?? 0,
-        subtotal: row.subtotal ?? 0,
-        taxa_entrega: row.taxa_entrega ?? 0,
-        desconto: row.desconto ?? 0,
-        payment_method: row.pagamento ? (pagamentoLabel[row.pagamento] || row.pagamento) : "",
-        payment_raw: row.pagamento || "",
-        address: row.endereco_entrega ?? "",
-        items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit, obs: i.observacao || "" })),
-        created_at: row.criado_em,
-        alterado_em: row.alterado_em,
-      }));
-      setOrders(mapped);
+      setOrders((data || []).map(mapOrderRow));
+      setTotalCount(count ?? 0);
     }
     setLoading(false);
-  }, [user?.id]);
+  }, [user?.id, dateFilter, filtroStatus, page, perPage]);
 
-  useEffect(() => { loadOrders(); }, [loadOrders]);
+  // Refetch quando muda filtros/pagina (tabela)
+  useEffect(() => { loadTableOrders(); }, [loadTableOrders]);
+
+  // Kanban: roda 1x no mount
+  useEffect(() => { loadKanbanOrders(); }, [loadKanbanOrders]);
+
+  // Refetch combinado (usado quando o pedido e editado/criado/mudou status)
+  const loadOrders = useCallback(async () => {
+    await Promise.all([loadKanbanOrders(), loadTableOrders()]);
+  }, [loadKanbanOrders, loadTableOrders]);
 
   // Carrega dados do restaurante (nome + telefone) pra impressao
   useEffect(() => {
@@ -199,10 +292,28 @@ export default function Orders() {
 
   const changeStatus = async (orderId: string, newStatus: OrderStatus) => {
     // Captura o status anterior e o pedido ANTES do update otimista
-    const currentOrder = orders.find(o => o.id === orderId);
+    // (busca em orders OU kanbanOrders porque o pedido pode estar em um ou outro)
+    const currentOrder = orders.find(o => o.id === orderId) || kanbanOrders.find(o => o.id === orderId);
     const oldStatus = currentOrder?.status;
 
+    // Update otimista nos dois states
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    const isKanbanStatus = (s: OrderStatus) => s === "novo" || s === "em_preparo" || s === "saiu_entrega";
+    setKanbanOrders(prev => {
+      // Se o novo status sai do kanban, remove
+      if (!isKanbanStatus(newStatus)) {
+        return prev.filter(o => o.id !== orderId);
+      }
+      // Se ja existia no kanban, atualiza. Senao adiciona (vindo de fora do kanban).
+      const existing = prev.find(o => o.id === orderId);
+      if (existing) {
+        return prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+      }
+      if (currentOrder) {
+        return [{ ...currentOrder, status: newStatus }, ...prev];
+      }
+      return prev;
+    });
 
     // Auto-print ao passar pra "em_preparo" (primeira vez). Chamado SINCRONAMENTE
     // antes do await pra manter o user-gesture context e evitar popup blocker.
@@ -268,9 +379,9 @@ export default function Orders() {
     setPage(1);
   };
 
-  // Filter + Sort + Paginate
-  const sortedFiltered = useMemo(() => {
-    let list = filtroStatus === "Todos" ? [...orders] : orders.filter(o => o.status === filtroStatus);
+  // Sort client-side sobre a pagina atual (orders ja vem filtrada/paginada do server)
+  const paginated = useMemo(() => {
+    const list = [...orders];
     list.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
@@ -283,15 +394,9 @@ export default function Orders() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [orders, filtroStatus, sortKey, sortDir]);
+  }, [orders, sortKey, sortDir]);
 
-  const totalPages = Math.ceil(sortedFiltered.length / perPage);
-  const paginated = sortedFiltered.slice((page - 1) * perPage, page * perPage);
-
-  const contadores = Object.fromEntries(
-    (["novo", "em_preparo", "saiu_entrega", "entregue", "cancelado"] as OrderStatus[])
-      .map(s => [s, orders.filter(o => o.status === s).length])
-  ) as Record<OrderStatus, number>;
+  const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
   const allStatuses: OrderStatus[] = ["novo", "confirmado", "em_preparo", "saiu_entrega", "entregue", "cancelado"];
 
@@ -313,7 +418,7 @@ export default function Orders() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={loadOrders}><RefreshCw className="h-4 w-4" /></Button>
           <Badge variant="outline" className="text-sm gap-1.5 px-3 py-1.5">
-            <ClipboardList className="h-3.5 w-3.5" />{orders.length} pedidos
+            <ClipboardList className="h-3.5 w-3.5" />{totalCount} pedidos
           </Badge>
         </div>
       </div>
@@ -321,8 +426,8 @@ export default function Orders() {
       {/* Kanban compacto */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {kanbanColumns.map(col => {
-          const colOrders = orders.filter(o => o.status === col.key).slice(0, 5);
-          const totalCol = orders.filter(o => o.status === col.key).length;
+          const colOrders = kanbanOrders.filter(o => o.status === col.key).slice(0, 5);
+          const totalCol = kanbanOrders.filter(o => o.status === col.key).length;
           const config = ORDER_STATUS[col.key];
           return (
             <div key={col.key} className="space-y-2">
@@ -350,7 +455,7 @@ export default function Orders() {
                             </Badge>
                           )}
                           <span className="text-sm text-muted-foreground truncate">{order.customer_name}</span>
-                          <span className="text-xs text-muted-foreground ml-auto shrink-0">{formatHora(order.created_at)}</span>
+                          <span className="text-xs text-muted-foreground ml-auto shrink-0 tabular-nums">{formatOrderDate(order.created_at)}</span>
                         </div>
                         <div className="flex items-center justify-between mt-0.5">
                           <span className="text-xs text-muted-foreground truncate">{formatItems(order.items)}</span>
@@ -411,7 +516,7 @@ export default function Orders() {
         <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <CardTitle className="text-base">
             {filtroStatus === "Todos" ? "Todos os pedidos" : `Pedidos — ${ORDER_STATUS[filtroStatus as OrderStatus]?.label}`}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">({sortedFiltered.length})</span>
+            <span className="ml-2 text-sm font-normal text-muted-foreground">({totalCount})</span>
           </CardTitle>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Por página:</span>
@@ -426,22 +531,39 @@ export default function Orders() {
           </div>
         </CardHeader>
 
-        {/* Status filter pills */}
-        <div className="px-6 pb-3 flex gap-1.5 flex-wrap">
-          {(["Todos", "novo", "em_preparo", "saiu_entrega", "entregue", "cancelado"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => { setFiltroStatus(s); setPage(1); }}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                filtroStatus === s
-                  ? "bg-primary text-white shadow-sm"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-              }`}
-            >
-              {s === "Todos" ? "Todos" : ORDER_STATUS[s]?.label}
-              {s !== "Todos" && <span className="ml-1 opacity-70">({contadores[s] ?? 0})</span>}
-            </button>
-          ))}
+        {/* Filtros: data + status em dropdowns lado a lado */}
+        <div className="px-6 pb-3 flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Período:</span>
+            <Select value={dateFilter} onValueChange={(v) => { setDateFilter(v as DateFilter); setPage(1); }}>
+              <SelectTrigger className="h-7 w-[160px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hoje">Hoje</SelectItem>
+                <SelectItem value="ontem">Ontem</SelectItem>
+                <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                <SelectItem value="tudo">Tudo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Status:</span>
+            <Select value={filtroStatus} onValueChange={(v) => { setFiltroStatus(v as OrderStatus | "Todos"); setPage(1); }}>
+              <SelectTrigger className="h-7 w-[140px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos</SelectItem>
+                <SelectItem value="novo">{ORDER_STATUS.novo.label}</SelectItem>
+                <SelectItem value="em_preparo">{ORDER_STATUS.em_preparo.label}</SelectItem>
+                <SelectItem value="saiu_entrega">{ORDER_STATUS.saiu_entrega.label}</SelectItem>
+                <SelectItem value="entregue">{ORDER_STATUS.entregue.label}</SelectItem>
+                <SelectItem value="cancelado">{ORDER_STATUS.cancelado.label}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <CardContent className="p-0">
@@ -457,7 +579,7 @@ export default function Orders() {
                   <TableHead className="hidden md:table-cell">Itens</TableHead>
                   <SortableHead label="Valor" sortKey="total" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
                   <SortableHead label="Status" sortKey="status" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} />
-                  <SortableHead label="Hora" sortKey="created_at" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                  <SortableHead label="Data" sortKey="created_at" currentSort={sortKey} currentDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
                   <TableHead className="text-right">Ver</TableHead>
                 </TableRow>
               </TableHeader>
@@ -500,8 +622,8 @@ export default function Orders() {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                        {formatHora(order.created_at)}
+                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground tabular-nums">
+                        {formatOrderDate(order.created_at)}
                       </TableCell>
                       <TableCell className="text-right">
                         <OrderDetailSheet order={order} onStatusChange={changeStatus} onOrderEdited={loadOrders} restaurante={restaurante} />
@@ -518,7 +640,7 @@ export default function Orders() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t">
               <span className="text-xs text-muted-foreground">
-                {(page - 1) * perPage + 1}–{Math.min(page * perPage, sortedFiltered.length)} de {sortedFiltered.length}
+                {(page - 1) * perPage + 1}–{Math.min(page * perPage, totalCount)} de {totalCount}
               </span>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
@@ -896,8 +1018,8 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
               <p className="text-lg font-bold tabular-nums">R$ {order.total.toFixed(2).replace(".", ",")}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">Hora</p>
-              <p>{formatHora(order.created_at)}</p>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Data</p>
+              <p className="text-sm tabular-nums">{formatOrderDateTime(order.created_at)}</p>
             </div>
           </div>
           <Separator />
