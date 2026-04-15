@@ -486,7 +486,7 @@ function ConversationsInner() {
 
   if (loadingConvs) {
     return (
-      <div className="flex h-[calc(100vh-3.5rem)]">
+      <div className="flex h-[calc(100vh-3.5rem)] md:h-screen">
         <div className="w-full md:w-80 border-r p-3 space-y-3">
           <Skeleton className="h-9 w-full rounded-lg" />
           <div className="flex gap-1.5">
@@ -513,7 +513,7 @@ function ConversationsInner() {
 
   if (conversations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)] text-center px-6">
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-3.5rem)] md:h-screen text-center px-6">
         <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
           <MessageCircle className="h-10 w-10 text-primary" />
         </div>
@@ -528,7 +528,7 @@ function ConversationsInner() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)]">
+    <div className="flex h-[calc(100vh-3.5rem)] md:h-screen">
 
       {/* ═══ LEFT PANEL — Conversation List ═══ */}
       <div className={`w-full md:w-96 border-r flex-col shrink-0 bg-card ${selectedId ? "hidden md:flex" : "flex"}`}>
