@@ -37,7 +37,7 @@ function MenuDigitalInner() {
   const [activeCategory, setActiveCategory] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [addedId, setAddedId] = useState<string | null>(null);
-  const { items, addItem, removeItem, updateQuantity, updateObservation, totalItems, totalPrice } = useCart();
+  const { items, addItem, removeItem, updateQuantity, updateObservation, syncCart, totalItems, totalPrice } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,9 +119,21 @@ function MenuDigitalInner() {
         setDailySpecial({ product_id: specialData.product_id, preco_promocional: Number(specialData.preco_promocional) });
       }
 
+      // Sincroniza o carrinho (localStorage) com o catalogo atual.
+      // Se produto foi special do dia, usa preco promocional na sincronizacao pra nao subir valor indevidamente.
+      const catalogForSync = specialData
+        ? prods.map(p =>
+            p.id === specialData.product_id
+              ? { ...p, preco: Number(specialData.preco_promocional) }
+              : p
+          )
+        : prods;
+      syncCart(catalogForSync);
+
       setLoading(false);
     }
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   const filtered = produtos

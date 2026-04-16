@@ -32,6 +32,7 @@ interface CartContextType {
   updateQuantity: (cartItemId: string, quantity: number) => void;
   updateObservation: (cartItemId: string, observation: string) => void;
   clearCart: () => void;
+  syncCart: (catalog: Product[]) => void;
   totalItems: number;
   totalPrice: number;
 }
@@ -126,6 +127,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try { localStorage.removeItem(CART_STORAGE_KEY); } catch {}
   };
 
+  // Re-sincroniza itens do carrinho com o catalogo atual do cardapio.
+  // Necessario porque o carrinho fica no localStorage: se o admin alterar preco/nome
+  // entre o cliente adicionar ao carrinho e finalizar, o item fica com dado antigo.
+  // Remove itens que nao estao mais no catalogo (produto excluido ou indisponivel).
+  const syncCart = (catalog: Product[]) => {
+    if (!catalog || catalog.length === 0) return;
+    const byId = new Map(catalog.map(p => [p.id, p]));
+    setItems(prev => {
+      const next: CartItem[] = [];
+      for (const item of prev) {
+        const current = byId.get(item.product.id);
+        if (!current) continue; // produto saiu do cardapio: remove
+        const mudou =
+          current.preco !== item.product.preco ||
+          current.nome !== item.product.nome ||
+          current.descricao !== item.product.descricao ||
+          current.imagem_url !== item.product.imagem_url ||
+          current.categoria !== item.product.categoria;
+        next.push(mudou ? { ...item, product: current } : item);
+      }
+      return next;
+    });
+  };
+
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const totalPrice = items.reduce(
     (sum, i) => sum + unitPriceWithOptions(i.product.preco, i.selectedOptions) * i.quantity,
@@ -133,7 +158,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateObservation, clearCart, totalItems, totalPrice }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateObservation, clearCart, syncCart, totalItems, totalPrice }}>
       {children}
     </CartContext.Provider>
   );
