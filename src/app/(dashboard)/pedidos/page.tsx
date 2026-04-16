@@ -75,7 +75,7 @@ const pagamentoLabel: Record<string, string> = {
 };
 
 const statusOrder: Record<OrderStatus, number> = {
-  novo: 0, confirmado: 1, em_preparo: 2, saiu_entrega: 3, entregue: 4, cancelado: 5,
+  novo: 0, em_preparo: 1, saiu_entrega: 2, entregue: 3, cancelado: 4,
 };
 
 // Smart display: "10:42" se hoje, "Ontem 10:42" se ontem,
@@ -398,7 +398,7 @@ export default function Orders() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / perPage));
 
-  const allStatuses: OrderStatus[] = ["novo", "confirmado", "em_preparo", "saiu_entrega", "entregue", "cancelado"];
+  const allStatuses: OrderStatus[] = ["novo", "em_preparo", "saiu_entrega", "entregue", "cancelado"];
 
   if (loading) {
     return (
@@ -680,7 +680,7 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
 }) {
   const { user } = useAuth();
   const config = ORDER_STATUS[order.status];
-  const allStatuses: OrderStatus[] = ["novo", "confirmado", "em_preparo", "saiu_entrega", "entregue", "cancelado"];
+  const allStatuses: OrderStatus[] = ["novo", "em_preparo", "saiu_entrega", "entregue", "cancelado"];
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editItems, setEditItems] = useState<OrderItemLocal[]>(order.items);

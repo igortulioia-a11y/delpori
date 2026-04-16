@@ -87,7 +87,7 @@ export interface Order {
   user_id: string;
   customer_id: string | null;
   numero: number;
-  status: "novo" | "confirmado" | "em_preparo" | "saiu_entrega" | "entregue" | "cancelado";
+  status: "novo" | "em_preparo" | "saiu_entrega" | "entregue" | "cancelado";
   pagamento: "pix" | "credito" | "debito" | "dinheiro" | "vale_refeicao" | null;
   subtotal: number;
   taxa_entrega: number;
