@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { differenceInCalendarDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DateRangePicker, getRangeFromPreset, type DateRangeValue } from "@/components/DateRangePicker";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -15,7 +16,6 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
-const periodos = ["Hoje", "7 dias", "30 dias"];
 const PIE_COLORS = ["#f97316", "#ef4444", "#8b5cf6", "#22c55e", "#06b6d4", "#eab308", "#ec4899", "#3b82f6"];
 
 interface KPIs {
@@ -49,19 +49,28 @@ interface CategoryRevenue {
   value: number;
 }
 
-function getDaysBack(periodo: string) {
-  if (periodo === "Hoje") return 1;
-  if (periodo === "7 dias") return 7;
-  return 30;
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
+function rangeLabel(range: DateRangeValue): string {
+  switch (range.preset) {
+    case "hoje":        return "Vendas de hoje";
+    case "ontem":       return "Vendas de ontem";
+    case "7d":          return "Vendas dos últimos 7 dias";
+    case "30d":         return "Vendas dos últimos 30 dias";
+    case "mes-atual":   return "Vendas do mês atual";
+    case "mes-passado": return "Vendas do mês passado";
+    default:            return "Vendas no período";
+  }
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
-  const [periodo, setPeriodo] = useState("7 dias");
+  const [dateRange, setDateRange] = useState<DateRangeValue>(() => {
+    const r = getRangeFromPreset("7d");
+    return { ...r, preset: "7d" };
+  });
   const [loading, setLoading] = useState(true);
 
   const [kpis, setKpis] = useState<KPIs>({ receita: 0, pedidos: 0, ticketMedio: 0, cancelados: 0, totalOrders: 0 });
@@ -75,10 +84,9 @@ export default function Dashboard() {
     if (!user) { setLoading(false); return; }
     setLoading(true);
 
-    const days = getDaysBack(periodo);
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-    const sinceISO = since.toISOString();
+    const fromISO = dateRange.from.toISOString();
+    const toISO = dateRange.to.toISOString();
+    const rangeDays = differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -90,9 +98,10 @@ export default function Dashboard() {
         .from("orders")
         .select("id, status, total, criado_em, order_items(nome, quantidade, preco_unit)")
         .eq("user_id", user.id)
-        .gte("criado_em", sinceISO)
+        .gte("criado_em", fromISO)
+        .lte("criado_em", toISO)
         .order("criado_em", { ascending: true })
-        .limit(500),
+        .limit(2000),
       supabase
         .from("orders")
         .select("status, total, criado_em")
@@ -124,12 +133,13 @@ export default function Dashboard() {
       totalOrders: allOrders.length,
     });
 
-    // Build chart data grouped by day (or hour for "Hoje")
+    // Build chart data grouped by day — ou por hora se range <= 1 dia
+    const groupByHour = rangeDays <= 1;
     const groupMap: Record<string, { vendas: number; pedidos: number }> = {};
     validOrders.forEach(o => {
       const date = new Date(o.criado_em);
       let label: string;
-      if (periodo === "Hoje") {
+      if (groupByHour) {
         label = `${date.getHours().toString().padStart(2, "0")}h`;
       } else {
         label = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
@@ -218,7 +228,7 @@ export default function Dashboard() {
     setOpenConversations(convsRes.count ?? 0);
 
     setLoading(false);
-  }, [user?.id, periodo]);
+  }, [user?.id, dateRange]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -228,7 +238,7 @@ export default function Dashboard() {
 
   const finKpis = [
     {
-      label: periodo === "Hoje" ? "Receita do dia" : `Receita (${periodo})`,
+      label: dateRange.preset === "hoje" ? "Receita do dia" : "Receita no período",
       value: `R$ ${kpis.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
       icon: DollarSign,
       iconBg: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400",
@@ -264,26 +274,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">Visão geral do seu negócio</p>
         </div>
-        <div className="flex gap-1.5">
-          {periodos.map(p => (
-            <Button
-              key={p}
-              variant={periodo === p ? "default" : "outline"}
-              size="sm"
-              className={periodo === p
-                ? "rounded-full bg-primary text-primary-foreground"
-                : "rounded-full bg-card text-muted-foreground border"}
-              onClick={() => setPeriodo(p)}
-            >
-              {p}
-            </Button>
-          ))}
+        <div className="shrink-0 self-start sm:self-auto">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 
@@ -311,7 +309,7 @@ export default function Dashboard() {
         <Card className="shadow-sm hover:shadow-md transition-all duration-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium">
-              {periodo === "Hoje" ? "Vendas de hoje" : periodo === "7 dias" ? "Vendas da semana" : "Vendas do mês"}
+              {rangeLabel(dateRange)}
             </CardTitle>
           </CardHeader>
           <CardContent>

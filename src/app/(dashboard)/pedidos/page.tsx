@@ -169,7 +169,7 @@ export default function Orders() {
   const [totalCount, setTotalCount] = useState(0);              // total de pedidos do filtro atual (server)
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<OrderStatus | "Todos">("Todos");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("hoje");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("tudo");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [perPage, setPerPage] = useState(10);
