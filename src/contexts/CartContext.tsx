@@ -1,6 +1,12 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import {
+  hashSelectedOptions,
+  unitPriceWithOptions,
+  type SelectedOption,
+} from "@/lib/product-options";
+
 export interface Product {
   id: string;
   nome: string;
@@ -12,17 +18,19 @@ export interface Product {
 }
 
 export interface CartItem {
+  cartItemId: string; // uuid local — identifica a linha no carrinho (suporta mesmo produto com opcoes diferentes)
   product: Product;
   quantity: number;
   observation: string;
+  selectedOptions: SelectedOption[];
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  updateObservation: (productId: string, observation: string) => void;
+  addItem: (product: Product, selectedOptions?: SelectedOption[]) => void;
+  removeItem: (cartItemId: string) => void;
+  updateQuantity: (cartItemId: string, quantity: number) => void;
+  updateObservation: (cartItemId: string, observation: string) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -32,16 +40,38 @@ const CART_STORAGE_KEY = "delpori-cart";
 
 const CartContext = createContext<CartContextType | null>(null);
 
+function genId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `cart-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// Hidrata do localStorage e migra silenciosamente qualquer item antigo
+// (sem cartItemId / sem selectedOptions) pra nova estrutura.
+function hydrateFromStorage(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(CART_STORAGE_KEY);
+    if (!stored) return [];
+    const raw = JSON.parse(stored);
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((it: any) => it && it.product)
+      .map((it: any) => ({
+        cartItemId: typeof it.cartItemId === "string" ? it.cartItemId : genId(),
+        product: it.product,
+        quantity: typeof it.quantity === "number" && it.quantity > 0 ? it.quantity : 1,
+        observation: typeof it.observation === "string" ? it.observation : "",
+        selectedOptions: Array.isArray(it.selectedOptions) ? it.selectedOptions : [],
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const stored = localStorage.getItem(CART_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [items, setItems] = useState<CartItem[]>(hydrateFromStorage);
 
   // Persist to localStorage on change
   useEffect(() => {
@@ -50,27 +80,45 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [items]);
 
-  const addItem = (product: Product) => {
+  const addItem = (product: Product, selectedOptions: SelectedOption[] = []) => {
+    const targetHash = hashSelectedOptions(selectedOptions);
     setItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id);
+      const existing = prev.find(
+        i =>
+          i.product.id === product.id &&
+          hashSelectedOptions(i.selectedOptions) === targetHash
+      );
       if (existing) {
-        return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map(i =>
+          i.cartItemId === existing.cartItemId
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
+        );
       }
-      return [...prev, { product, quantity: 1, observation: "" }];
+      return [
+        ...prev,
+        {
+          cartItemId: genId(),
+          product,
+          quantity: 1,
+          observation: "",
+          selectedOptions,
+        },
+      ];
     });
   };
 
-  const removeItem = (productId: string) => {
-    setItems(prev => prev.filter(i => i.product.id !== productId));
+  const removeItem = (cartItemId: string) => {
+    setItems(prev => prev.filter(i => i.cartItemId !== cartItemId));
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) return removeItem(productId);
-    setItems(prev => prev.map(i => i.product.id === productId ? { ...i, quantity } : i));
+  const updateQuantity = (cartItemId: string, quantity: number) => {
+    if (quantity <= 0) return removeItem(cartItemId);
+    setItems(prev => prev.map(i => i.cartItemId === cartItemId ? { ...i, quantity } : i));
   };
 
-  const updateObservation = (productId: string, observation: string) => {
-    setItems(prev => prev.map(i => i.product.id === productId ? { ...i, observation } : i));
+  const updateObservation = (cartItemId: string, observation: string) => {
+    setItems(prev => prev.map(i => i.cartItemId === cartItemId ? { ...i, observation } : i));
   };
 
   const clearCart = () => {
@@ -79,7 +127,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = items.reduce((sum, i) => sum + i.product.preco * i.quantity, 0);
+  const totalPrice = items.reduce(
+    (sum, i) => sum + unitPriceWithOptions(i.product.preco, i.selectedOptions) * i.quantity,
+    0
+  );
 
   return (
     <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateObservation, clearCart, totalItems, totalPrice }}>

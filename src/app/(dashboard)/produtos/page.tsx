@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Plus, Pencil, Trash2, Loader2, UtensilsCrossed, Upload, X, Download, GripVertical, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, UtensilsCrossed, Upload, X, Download, GripVertical, ArrowUpDown, ListPlus } from "lucide-react";
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ImportMenuDialog } from "@/components/ImportMenuDialog";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { ProductOptionsManager } from "@/components/ProductOptionsManager";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,7 @@ export default function Products() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [optionsProduct, setOptionsProduct] = useState<Product | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [sortMode, setSortMode] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
@@ -380,10 +382,13 @@ export default function Products() {
                   </div>
                 )}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
+                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setOptionsProduct(p); }} title="Opções e adicionais">
+                    <ListPlus className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(p); }} title="Editar">
                     <Pencil className="h-3 w-3" />
                   </Button>
-                  <Button size="icon" variant="secondary" className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground" onClick={(e) => { e.stopPropagation(); deleteProduct(p.id); }}>
+                  <Button size="icon" variant="secondary" className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground" onClick={(e) => { e.stopPropagation(); deleteProduct(p.id); }} title="Excluir">
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -441,22 +446,40 @@ export default function Products() {
                   <p className="text-2xl font-bold text-primary tabular-nums">R$ {detailProduct.preco.toFixed(2).replace(".", ",")}</p>
                 </div>
                 <Separator />
-                <div className="flex gap-2">
-                  <Button className="flex-1" onClick={() => { openEdit(detailProduct); setDetailProduct(null); }}>
-                    <Pencil className="h-4 w-4 mr-2" /> Editar
-                  </Button>
-                  <Button
-                    variant={detailProduct.disponivel ? "outline" : "default"}
-                    onClick={() => {
-                      toggleActive(detailProduct);
-                      setDetailProduct({ ...detailProduct, disponivel: !detailProduct.disponivel });
-                    }}
-                  >
-                    {detailProduct.disponivel ? "Desativar" : "Ativar"}
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Button className="flex-1" onClick={() => { openEdit(detailProduct); setDetailProduct(null); }}>
+                      <Pencil className="h-4 w-4 mr-2" /> Editar
+                    </Button>
+                    <Button
+                      variant={detailProduct.disponivel ? "outline" : "default"}
+                      onClick={() => {
+                        toggleActive(detailProduct);
+                        setDetailProduct({ ...detailProduct, disponivel: !detailProduct.disponivel });
+                      }}
+                    >
+                      {detailProduct.disponivel ? "Desativar" : "Ativar"}
+                    </Button>
+                  </div>
+                  <Button variant="secondary" onClick={() => { setOptionsProduct(detailProduct); setDetailProduct(null); }}>
+                    <ListPlus className="h-4 w-4 mr-2" /> Gerenciar opções
                   </Button>
                 </div>
               </div>
             </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Options sheet (side right) */}
+      <Sheet open={!!optionsProduct} onOpenChange={(open) => !open && setOptionsProduct(null)}>
+        <SheetContent side="right" className="sm:max-w-lg w-full flex flex-col p-6">
+          {optionsProduct && user && (
+            <ProductOptionsManager
+              product={{ id: optionsProduct.id, nome: optionsProduct.nome }}
+              userId={user.id}
+              onClose={() => setOptionsProduct(null)}
+            />
           )}
         </SheetContent>
       </Sheet>

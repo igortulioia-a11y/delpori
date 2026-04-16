@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, UtensilsCrossed, Sparkles } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Search, Loader2, UtensilsCrossed, Sparkles, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,13 @@ import { supabase } from "@/lib/supabase";
 import { normalizeSlug } from "@/lib/utils";
 import { useCart } from "@/contexts/CartContext";
 import type { Product } from "@/contexts/CartContext";
+import {
+  groupProductOptions,
+  unitPriceWithOptions,
+  type ProductOption,
+  type ProductOptionGroup,
+  type SelectedOption,
+} from "@/lib/product-options";
 
 interface ProfileData {
   id: string;
@@ -38,6 +45,8 @@ function MenuDigitalInner() {
   const [produtos, setProdutos] = useState<Product[]>([]);
   const [categorias, setCategorias] = useState<string[]>(["Todos"]);
   const [dailySpecial, setDailySpecial] = useState<{ product_id: string; preco_promocional: number } | null>(null);
+  const [productsWithOptions, setProductsWithOptions] = useState<Set<string>>(new Set());
+  const [optsProduct, setOptsProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -80,6 +89,23 @@ function MenuDigitalInner() {
       const cats = ["Todos", ...new Set(prods.map(p => p.categoria).filter(Boolean))];
       setCategorias(cats);
 
+      // Produtos que tem opcoes disponiveis
+      if (prods.length > 0) {
+        const { data: optRows } = await supabase
+          .from("product_options")
+          .select("product_id")
+          .eq("disponivel", true)
+          .in("product_id", prods.map(p => p.id));
+        const withOpts = new Set<string>(
+          ((optRows || []) as Array<{ product_id: string | null }>)
+            .map(r => r.product_id)
+            .filter((v): v is string => !!v)
+        );
+        setProductsWithOptions(withOpts);
+      } else {
+        setProductsWithOptions(new Set());
+      }
+
       // Prato do dia
       const today = new Date().getDay();
       const { data: specialData } = await supabase
@@ -102,12 +128,26 @@ function MenuDigitalInner() {
     .filter(p => activeCategory === "Todos" || p.categoria === activeCategory)
     .filter(p => !searchQuery || p.nome.toLowerCase().includes(searchQuery.toLowerCase()) || (p.descricao || "").toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const getItemQty = (id: string) => items.find(i => i.product.id === id)?.quantity ?? 0;
+  // Soma todas as linhas do carrinho deste produto (podem existir varias com opcoes diferentes)
+  const getItemQty = (id: string) =>
+    items.filter(i => i.product.id === id).reduce((sum, i) => sum + i.quantity, 0);
+
+  // Encontra a linha unica no carrinho (uso do stepper +/- no card de produto sem opcoes)
+  const getSingleCartItemId = (id: string) => {
+    const matches = items.filter(i => i.product.id === id);
+    return matches.length === 1 ? matches[0].cartItemId : null;
+  };
 
   const handleAdd = (product: Product) => {
     const isSpecial = dailySpecial && product.id === dailySpecial.product_id;
     const productToAdd = isSpecial ? { ...product, preco: dailySpecial.preco_promocional } : product;
-    addItem(productToAdd);
+
+    if (productsWithOptions.has(product.id)) {
+      setOptsProduct(productToAdd);
+      return;
+    }
+
+    addItem(productToAdd, []);
     setAddedId(product.id);
     setTimeout(() => setAddedId(null), 300);
   };
@@ -190,6 +230,9 @@ function MenuDigitalInner() {
           const sp = produtos.find(p => p.id === dailySpecial.product_id);
           if (!sp) return null;
           const qty = getItemQty(sp.id);
+          const hasOptions = productsWithOptions.has(sp.id);
+          const singleCartId = getSingleCartItemId(sp.id);
+          const stepperAvailable = !hasOptions && singleCartId !== null;
           return (
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 p-4 shadow-lg text-white">
               <div className="flex gap-4 items-center">
@@ -213,13 +256,9 @@ function MenuDigitalInner() {
                 </div>
               </div>
               <div className="mt-3">
-                {qty === 0 ? (
-                  <Button size="sm" variant="secondary" className="w-full h-9 rounded-full font-bold text-xs" onClick={() => handleAdd(sp)}>
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar ao carrinho
-                  </Button>
-                ) : (
+                {stepperAvailable && qty > 0 ? (
                   <div className="flex items-center justify-center gap-3 bg-white/20 rounded-full py-1 px-2">
-                    <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-white hover:bg-white/20" onClick={() => updateQuantity(sp.id, qty - 1)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full text-white hover:bg-white/20" onClick={() => updateQuantity(singleCartId!, qty - 1)}>
                       <Minus className="h-3 w-3" />
                     </Button>
                     <span className="text-sm font-bold w-5 text-center">{qty}</span>
@@ -227,6 +266,10 @@ function MenuDigitalInner() {
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
+                ) : (
+                  <Button size="sm" variant="secondary" className="w-full h-9 rounded-full font-bold text-xs" onClick={() => handleAdd(sp)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> {qty > 0 ? `No carrinho (${qty}) · Adicionar outra` : "Adicionar ao carrinho"}
+                  </Button>
                 )}
               </div>
             </div>
@@ -242,6 +285,9 @@ function MenuDigitalInner() {
           const quantity = getItemQty(product.id);
           const isAdding = addedId === product.id;
           const isSpecial = dailySpecial?.product_id === product.id;
+          const hasOptions = productsWithOptions.has(product.id);
+          const singleCartId = getSingleCartItemId(product.id);
+          const stepperAvailable = !hasOptions && singleCartId !== null;
           return (
             <div
               key={product.id}
@@ -286,17 +332,9 @@ function MenuDigitalInner() {
                       R$ {product.preco.toFixed(2).replace(".", ",")}
                     </span>
                   )}
-                  {quantity === 0 ? (
-                    <Button
-                      size="sm"
-                      className="h-9 px-4 text-xs rounded-full shadow-sm font-semibold shrink-0"
-                      onClick={() => handleAdd(product)}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
-                    </Button>
-                  ) : (
+                  {stepperAvailable && quantity > 0 ? (
                     <div className="flex items-center gap-2.5 bg-secondary rounded-full px-1 py-0.5 shrink-0">
-                      <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive" onClick={() => updateQuantity(product.id, quantity - 1)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive" onClick={() => updateQuantity(singleCartId!, quantity - 1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
                       <span className="text-sm font-bold w-5 text-center">{quantity}</span>
@@ -304,6 +342,15 @@ function MenuDigitalInner() {
                         <Plus className="h-3 w-3" />
                       </Button>
                     </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="h-9 px-4 text-xs rounded-full shadow-sm font-semibold shrink-0"
+                      onClick={() => handleAdd(product)}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      {hasOptions && quantity > 0 ? `No carrinho (${quantity})` : "Adicionar"}
+                    </Button>
                   )}
                 </div>
               </div>
@@ -335,48 +382,61 @@ function MenuDigitalInner() {
                 </SheetHeader>
                 <div className="flex-1 min-h-0 overflow-y-auto mt-4 pr-2">
                   <div className="space-y-4">
-                    {items.map(item => (
-                      <div key={item.product.id} className="space-y-2">
-                        <div className="flex gap-3">
-                          {item.product.imagem_url ? (
-                            <img src={item.product.imagem_url} alt={item.product.nome} className="w-16 h-16 shrink-0 rounded-xl object-cover" />
-                          ) : (
-                            <div className="w-16 h-16 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
-                              <UtensilsCrossed className="h-8 w-8 text-primary/40" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between">
-                              <h4 className="font-semibold text-sm">{item.product.nome}</h4>
-                              <button onClick={() => removeItem(item.product.id)} className="text-muted-foreground hover:text-destructive p-1 transition-colors">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <div className="flex items-center justify-between mt-2">
-                              <div className="flex items-center gap-2 bg-secondary rounded-full px-1 py-0.5">
-                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" onClick={() => updateQuantity(item.product.id, item.quantity - 1)}>
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                                <span className="text-sm font-bold w-5 text-center">{item.quantity}</span>
-                                <Button size="icon" className="h-7 w-7 rounded-full" onClick={() => updateQuantity(item.product.id, item.quantity + 1)}>
-                                  <Plus className="h-3 w-3" />
-                                </Button>
+                    {items.map(item => {
+                      const unit = unitPriceWithOptions(item.product.preco, item.selectedOptions);
+                      return (
+                        <div key={item.cartItemId} className="space-y-2">
+                          <div className="flex gap-3">
+                            {item.product.imagem_url ? (
+                              <img src={item.product.imagem_url} alt={item.product.nome} className="w-16 h-16 shrink-0 rounded-xl object-cover" />
+                            ) : (
+                              <div className="w-16 h-16 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+                                <UtensilsCrossed className="h-8 w-8 text-primary/40" />
                               </div>
-                              <span className="font-bold text-sm text-primary">
-                                R$ {(item.product.preco * item.quantity).toFixed(2).replace(".", ",")}
-                              </span>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between">
+                                <h4 className="font-semibold text-sm">{item.product.nome}</h4>
+                                <button onClick={() => removeItem(item.cartItemId)} className="text-muted-foreground hover:text-destructive p-1 transition-colors">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                              {item.selectedOptions.length > 0 && (
+                                <ul className="mt-1 space-y-0.5">
+                                  {item.selectedOptions.map((s, idx) => (
+                                    <li key={`${item.cartItemId}-opt-${idx}`} className="text-[11px] text-muted-foreground leading-snug">
+                                      + {s.nome}
+                                      {s.preco_adicional > 0 && ` (+R$ ${s.preco_adicional.toFixed(2).replace(".", ",")})`}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center gap-2 bg-secondary rounded-full px-1 py-0.5">
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 rounded-full" onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}>
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <span className="text-sm font-bold w-5 text-center">{item.quantity}</span>
+                                  <Button size="icon" className="h-7 w-7 rounded-full" onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}>
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <span className="font-bold text-sm text-primary">
+                                  R$ {(unit * item.quantity).toFixed(2).replace(".", ",")}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          <Input
+                            placeholder="Observação (ex: sem cebola)"
+                            className="h-9 text-xs rounded-xl"
+                            value={item.observation}
+                            onChange={e => updateObservation(item.cartItemId, e.target.value)}
+                          />
+                          <Separator />
                         </div>
-                        <Input
-                          placeholder="Observação (ex: sem cebola)"
-                          className="h-9 text-xs rounded-xl"
-                          value={item.observation}
-                          onChange={e => updateObservation(item.product.id, e.target.value)}
-                        />
-                        <Separator />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="border-t pt-4 mt-3 pb-6 space-y-3 shrink-0">
@@ -400,7 +460,203 @@ function MenuDigitalInner() {
           </div>
         </div>
       )}
+      {/* Sheet de opcoes ao clicar "Adicionar" num produto que tem opcoes */}
+      <Sheet open={!!optsProduct} onOpenChange={(open) => !open && setOptsProduct(null)}>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl flex flex-col">
+          {optsProduct && (
+            <ProductOptionsSheetInner
+              product={optsProduct}
+              onClose={() => setOptsProduct(null)}
+              onConfirm={(selected, qty) => {
+                for (let i = 0; i < qty; i++) addItem(optsProduct, selected);
+                setOptsProduct(null);
+                setAddedId(optsProduct.id);
+                setTimeout(() => setAddedId(null), 300);
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
+  );
+}
+
+// Componente inline: painel de selecao de opcoes/adicionais para o cardapio publico
+function ProductOptionsSheetInner({
+  product,
+  onClose,
+  onConfirm,
+}: {
+  product: Product;
+  onClose: () => void;
+  onConfirm: (selected: SelectedOption[], qty: number) => void;
+}) {
+  const [groups, setGroups] = useState<ProductOptionGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Record<string, SelectedOption[]>>({});
+  const [qty, setQty] = useState(1);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    supabase
+      .from("product_options")
+      .select("*")
+      .eq("product_id", product.id)
+      .eq("disponivel", true)
+      .order("grupo", { ascending: true })
+      .order("criado_em", { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setGroups(groupProductOptions((data || []) as ProductOption[]));
+        setSelected({});
+        setQty(1);
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [product.id]);
+
+  function toggleOption(group: ProductOptionGroup, option: ProductOption) {
+    setSelected(prev => {
+      const picks = prev[group.grupo] || [];
+      const so: SelectedOption = { grupo: group.grupo, nome: option.nome, preco_adicional: Number(option.preco_adicional) || 0 };
+
+      if (group.max_escolhas === 1) {
+        // Radio: substituir
+        const alreadySelected = picks.some(p => p.nome === option.nome);
+        return { ...prev, [group.grupo]: alreadySelected ? [] : [so] };
+      }
+
+      // Checkbox: toggle com limite
+      const idx = picks.findIndex(p => p.nome === option.nome);
+      if (idx >= 0) {
+        return { ...prev, [group.grupo]: picks.filter((_, i) => i !== idx) };
+      }
+      if (picks.length >= group.max_escolhas) return prev; // limite
+      return { ...prev, [group.grupo]: [...picks, so] };
+    });
+  }
+
+  function isOptionSelected(grupo: string, nome: string): boolean {
+    return (selected[grupo] || []).some(s => s.nome === nome);
+  }
+
+  const isValid = groups.every(g => {
+    const picks = selected[g.grupo] || [];
+    return picks.length >= (g.min_escolhas ?? 0);
+  });
+
+  const flatSelected = groups.flatMap(g => selected[g.grupo] || []);
+  const unit = unitPriceWithOptions(product.preco, flatSelected);
+  const total = unit * qty;
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle className="text-lg">{product.nome}</SheetTitle>
+      </SheetHeader>
+
+      <div className="flex-1 min-h-0 overflow-y-auto mt-3 pr-1">
+        {/* Imagem + descricao */}
+        <div className="flex gap-3 mb-4">
+          {product.imagem_url ? (
+            <img src={product.imagem_url} alt={product.nome} className="w-20 h-20 rounded-xl object-cover shrink-0" />
+          ) : (
+            <div className="w-20 h-20 rounded-xl bg-primary/5 flex items-center justify-center shrink-0">
+              <UtensilsCrossed className="h-8 w-8 text-primary/40" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{product.descricao}</p>
+            <p className="font-extrabold text-base text-primary mt-1">R$ {product.preco.toFixed(2).replace(".", ",")}</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {groups.map(group => {
+              const picks = selected[group.grupo] || [];
+              const atMax = picks.length >= group.max_escolhas;
+              return (
+                <div key={group.grupo}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-semibold text-sm">{group.grupo}</h4>
+                    {group.min_escolhas >= 1 ? (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                        Obrigatório
+                      </Badge>
+                    ) : group.max_escolhas > 1 ? (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        Até {group.max_escolhas}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="space-y-1.5">
+                    {group.options.map(opt => {
+                      const sel = isOptionSelected(group.grupo, opt.nome);
+                      const disabled = !sel && atMax;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => toggleOption(group, opt)}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-medium transition-all ${
+                            sel
+                              ? "border-primary bg-accent text-accent-foreground"
+                              : disabled
+                                ? "border-border opacity-40 cursor-not-allowed"
+                                : "border-border hover:border-primary/30"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <span className={`w-4 h-4 rounded-${group.max_escolhas === 1 ? "full" : "md"} border-2 flex items-center justify-center ${
+                              sel ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"
+                            }`}>
+                              {sel && <Check className="h-2.5 w-2.5" />}
+                            </span>
+                            {opt.nome}
+                          </span>
+                          {(Number(opt.preco_adicional) || 0) > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              + R$ {Number(opt.preco_adicional).toFixed(2).replace(".", ",")}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Footer: quantidade + adicionar */}
+      <div className="border-t pt-4 mt-3 pb-6 space-y-3 shrink-0">
+        <div className="flex items-center justify-center gap-4">
+          <Button size="icon" variant="secondary" className="h-9 w-9 rounded-full" onClick={() => setQty(q => Math.max(1, q - 1))}>
+            <Minus className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-lg font-bold w-6 text-center">{qty}</span>
+          <Button size="icon" className="h-9 w-9 rounded-full" onClick={() => setQty(q => q + 1)}>
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <Button
+          className="w-full h-13 rounded-2xl text-sm font-bold shadow-lg"
+          disabled={!isValid}
+          onClick={() => onConfirm(flatSelected, qty)}
+        >
+          Adicionar ao carrinho — R$ {total.toFixed(2).replace(".", ",")}
+        </Button>
+      </div>
+    </>
   );
 }
 

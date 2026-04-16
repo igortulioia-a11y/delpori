@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/lib/supabase";
 import { normalizeSlug } from "@/lib/utils";
+import { unitPriceWithOptions } from "@/lib/product-options";
 
 interface DeliveryZone {
   id: string;
@@ -163,9 +164,15 @@ function MenuCheckoutInner() {
 
       const itensTexto = items
         .map(i => {
-          let line = `- ${i.quantity}x ${i.product.nome} (R$ ${fmt(i.product.preco * i.quantity)})`;
-          if (i.observation) line += ` _${i.observation}_`;
-          return line;
+          const unit = unitPriceWithOptions(i.product.preco, i.selectedOptions);
+          const lineTotal = unit * i.quantity;
+          const lines = [`- ${i.quantity}x ${i.product.nome} (R$ ${fmt(lineTotal)})`];
+          for (const s of i.selectedOptions) {
+            const extra = (Number(s.preco_adicional) || 0) > 0 ? ` (+R$ ${fmt(s.preco_adicional)})` : "";
+            lines.push(`  + ${s.nome}${extra}`);
+          }
+          if (i.observation) lines.push(`  _${i.observation}_`);
+          return lines.join("\n");
         })
         .join("\n");
 
@@ -220,15 +227,23 @@ function MenuCheckoutInner() {
         <section>
           <h2 className="font-semibold text-sm mb-3">Resumo do pedido</h2>
           <div className="bg-card rounded-2xl border p-4 space-y-2">
-            {items.map(item => (
-              <div key={item.product.id} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {item.quantity}x {item.product.nome}
-                  {item.observation && <span className="text-xs block text-muted-foreground/70">({item.observation})</span>}
-                </span>
-                <span className="font-medium">R$ {(item.product.preco * item.quantity).toFixed(2).replace(".", ",")}</span>
-              </div>
-            ))}
+            {items.map(item => {
+              const unit = unitPriceWithOptions(item.product.preco, item.selectedOptions);
+              return (
+                <div key={item.cartItemId} className="text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{item.quantity}x {item.product.nome}</span>
+                    <span className="font-medium">R$ {(unit * item.quantity).toFixed(2).replace(".", ",")}</span>
+                  </div>
+                  {item.selectedOptions.map((s, idx) => (
+                    <p key={idx} className="text-[11px] text-muted-foreground ml-3">
+                      + {s.nome}{(Number(s.preco_adicional) || 0) > 0 && ` (+R$ ${Number(s.preco_adicional).toFixed(2).replace(".", ",")})`}
+                    </p>
+                  ))}
+                  {item.observation && <p className="text-[11px] text-muted-foreground/70 ml-3">({item.observation})</p>}
+                </div>
+              );
+            })}
             <Separator />
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>Subtotal</span>
