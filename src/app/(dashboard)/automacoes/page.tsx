@@ -25,6 +25,11 @@ import { toast } from "@/hooks/use-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface ListaDestinatario {
+  nome: string;
+  telefone: string;
+}
+
 interface Campaign {
   id: string;
   nome: string;
@@ -32,6 +37,7 @@ interface Campaign {
   tipo: "promocao" | "cupom" | "aviso";
   filtro_tipo: string;
   filtro_valor: number | null;
+  lista_destinatarios: ListaDestinatario[] | null;
   status: "rascunho" | "agendada" | "enviando" | "enviada" | "cancelada";
   agendado_para: string | null;
   total_destinatarios: number;
@@ -70,7 +76,36 @@ const filtroLabels: Record<string, string> = {
   recentes: "Compraram nos últimos X dias",
   inativos: "Não compram há X dias",
   vip: "Mais de X pedidos",
+  lista: "Lista personalizada",
 };
+
+// Parser reutilizado por importLeads e pela lista personalizada do dialog de campanha.
+// Aceita CSV (nome,telefone ou nome;telefone ou nome\ttelefone) ou so telefone por linha.
+// Retorna so contatos com telefone valido (>= 12 digitos apos normalizacao).
+function parseLista(text: string): ListaDestinatario[] {
+  const lines = text.trim().split("\n").map(l => l.trim()).filter(Boolean);
+  const out: ListaDestinatario[] = [];
+  for (const line of lines) {
+    let nome = "Cliente";
+    let telefone = "";
+    if (line.includes(",") || line.includes(";") || line.includes("\t")) {
+      const parts = line.split(/[,;\t]/).map(p => p.trim());
+      if (parts.length >= 2) {
+        nome = parts[0] || "Cliente";
+        telefone = parts[1];
+      } else {
+        telefone = parts[0];
+      }
+    } else {
+      telefone = line;
+    }
+    telefone = telefone.replace(/\D/g, "");
+    if (telefone.length === 11 || telefone.length === 10) telefone = "55" + telefone;
+    if (telefone.length < 12) continue;
+    out.push({ nome, telefone });
+  }
+  return out;
+}
 
 const templates: Record<string, string> = {
   promocao: "Ola {nome}! Temos uma promocao especial para voce. Aproveite nossos precos exclusivos somente hoje! Faca seu pedido pelo WhatsApp.",
@@ -131,6 +166,7 @@ export default function Automations() {
     tipo: "promocao" as "promocao" | "cupom" | "aviso",
     filtro_tipo: "todos",
     filtro_valor: 30,
+    lista_texto: "",
     agendado_para: "",
   });
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
@@ -311,6 +347,7 @@ export default function Automations() {
       tipo,
       filtro_tipo: "todos",
       filtro_valor: 30,
+      lista_texto: "",
       agendado_para: "",
     });
     setCampaignDialog(true);
@@ -324,6 +361,9 @@ export default function Automations() {
       tipo: c.tipo,
       filtro_tipo: c.filtro_tipo,
       filtro_valor: c.filtro_valor ?? 30,
+      lista_texto: c.lista_destinatarios
+        ? c.lista_destinatarios.map(d => `${d.nome},${d.telefone}`).join("\n")
+        : "",
       agendado_para: c.agendado_para
         ? new Date(c.agendado_para).toISOString().slice(0, 16)
         : "",
@@ -337,13 +377,25 @@ export default function Automations() {
       return;
     }
 
+    const listaParsed = campaignForm.filtro_tipo === "lista"
+      ? parseLista(campaignForm.lista_texto)
+      : null;
+
+    if (campaignForm.filtro_tipo === "lista" && (!listaParsed || listaParsed.length === 0)) {
+      toast({ title: "Lista vazia", description: "Cole ao menos um contato valido (formato: nome,telefone ou so telefone)", variant: "destructive" });
+      return;
+    }
+
+    const usaFiltroNumerico = campaignForm.filtro_tipo !== "todos" && campaignForm.filtro_tipo !== "lista";
+
     const data = {
       user_id: user.id,
       nome: campaignForm.nome,
       mensagem: campaignForm.mensagem,
       tipo: campaignForm.tipo,
       filtro_tipo: campaignForm.filtro_tipo,
-      filtro_valor: campaignForm.filtro_tipo !== "todos" ? campaignForm.filtro_valor : null,
+      filtro_valor: usaFiltroNumerico ? campaignForm.filtro_valor : null,
+      lista_destinatarios: listaParsed,
       status: sendNow ? "enviando" : (campaignForm.agendado_para ? "agendada" : "rascunho"),
       agendado_para: campaignForm.agendado_para || null,
       total_destinatarios: 0,
@@ -411,23 +463,31 @@ export default function Automations() {
       return;
     }
 
-    // Get customers based on filter
-    let query = supabase.from("customers").select("id, nome, telefone").eq("user_id", user.id);
+    // Monta destinatarios: lista personalizada (ad-hoc) ou customers com filtro.
+    // id e opcional — so existe quando vem de customers (nao da lista ad-hoc).
+    let destinatarios: Array<{ id?: string; nome: string; telefone: string }>;
 
-    if (camp.filtro_tipo === "recentes" && camp.filtro_valor) {
-      const since = new Date();
-      since.setDate(since.getDate() - camp.filtro_valor);
-      query = query.gte("ultima_interacao", since.toISOString());
-    } else if (camp.filtro_tipo === "inativos" && camp.filtro_valor) {
-      const since = new Date();
-      since.setDate(since.getDate() - camp.filtro_valor);
-      query = query.lt("ultima_interacao", since.toISOString());
-    } else if (camp.filtro_tipo === "vip" && camp.filtro_valor) {
-      query = query.gte("total_pedidos", camp.filtro_valor);
+    if (camp.filtro_tipo === "lista") {
+      const lista = Array.isArray(camp.lista_destinatarios) ? camp.lista_destinatarios : [];
+      destinatarios = lista.slice(0, 50); // Limite de 50
+    } else {
+      let query = supabase.from("customers").select("id, nome, telefone").eq("user_id", user.id);
+
+      if (camp.filtro_tipo === "recentes" && camp.filtro_valor) {
+        const since = new Date();
+        since.setDate(since.getDate() - camp.filtro_valor);
+        query = query.gte("ultima_interacao", since.toISOString());
+      } else if (camp.filtro_tipo === "inativos" && camp.filtro_valor) {
+        const since = new Date();
+        since.setDate(since.getDate() - camp.filtro_valor);
+        query = query.lt("ultima_interacao", since.toISOString());
+      } else if (camp.filtro_tipo === "vip" && camp.filtro_valor) {
+        query = query.gte("total_pedidos", camp.filtro_valor);
+      }
+
+      const { data: customers } = await query;
+      destinatarios = (customers || []).slice(0, 50); // Limite de 50
     }
-
-    const { data: customers } = await query;
-    const destinatarios = (customers || []).slice(0, 50); // Limite de 50
 
     // Update campaign total
     await supabase
@@ -1273,7 +1333,7 @@ export default function Automations() {
                   ))}
                 </SelectContent>
               </Select>
-              {campaignForm.filtro_tipo !== "todos" && (
+              {campaignForm.filtro_tipo !== "todos" && campaignForm.filtro_tipo !== "lista" && (
                 <div className="flex items-center gap-2 mt-2">
                   <Input
                     type="number"
@@ -1284,6 +1344,20 @@ export default function Automations() {
                   <span className="text-sm text-muted-foreground">
                     {campaignForm.filtro_tipo === "vip" ? "pedidos" : "dias"}
                   </span>
+                </div>
+              )}
+              {campaignForm.filtro_tipo === "lista" && (
+                <div className="space-y-2 mt-2">
+                  <Textarea
+                    value={campaignForm.lista_texto}
+                    onChange={e => setCampaignForm({ ...campaignForm, lista_texto: e.target.value })}
+                    rows={6}
+                    placeholder={"Cole uma lista:\nNome,telefone\nou só telefone por linha\n\nEx:\nMaria Silva, 31 98888-7777\n11 99999-8888"}
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {parseLista(campaignForm.lista_texto).length} contato(s) válido(s) — limite de 50 por envio
+                  </p>
                 </div>
               )}
             </div>
