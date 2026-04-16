@@ -125,14 +125,8 @@ export default function Products() {
     const newIndex = products.findIndex(p => p.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const moved = arrayMove(products, oldIndex, newIndex);
-    // Recalcula `ordem` por categoria com base nas novas posicoes.
-    const catCounters: Record<string, number> = {};
-    const withOrder = moved.map(p => {
-      const cat = p.categoria || "";
-      const idx = catCounters[cat] ?? 0;
-      catCounters[cat] = idx + 1;
-      return { ...p, ordem: idx };
-    });
+    // Ordem GLOBAL unica (0..N-1) pra evitar empates no SELECT com ORDER BY ordem.
+    const withOrder = moved.map((p, idx) => ({ ...p, ordem: idx }));
     setProducts(withOrder);
   };
 
