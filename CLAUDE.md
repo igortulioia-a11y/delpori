@@ -68,7 +68,7 @@ externa sem afetar conversa humana).
 | get-whatsapp-qr | Gera QR code (validacao JWT manual) |
 | disconnect-whatsapp | Desconecta WA (validacao JWT manual) |
 | check-connection | pg_cron 1min: verifica status WA na Evolution |
-| cron-retomada | v5, pg_cron 5min: retoma conversas com `fora_horario_pendente=true` assim que horario reabre (injeta fake payload da ultima msg do cliente no WF1, zera flag, seta `retomada_em`) |
+| cron-retomada | v6, pg_cron 5min: retoma conversas com `fora_horario_pendente=true` assim que horario reabre. Envia msg humanizada direto pelo Evolution (template em `automation_settings.msg_retomada`, suporta placeholder `{nome}`), salva em messages, zera flag, seta `retomada_em`. NAO chama n8n (IA so processa quando cliente responder) |
 | cron-campanhas | pg_cron 5min: processa campanhas agendadas |
 
 ---
@@ -77,7 +77,7 @@ externa sem afetar conversa humana).
 
 ### Tabelas
 - **profiles** — Restaurante (nome, slug, tipo, telefone_cozinha, logo_url). PK = auth.users.id
-- **automation_settings** — Config IA (horario, instancia Evolution, status WA, follow-up). UNIQUE(user_id)
+- **automation_settings** — Config IA (horario, instancia Evolution, status WA, follow-up, `msg_retomada` template com `{nome}`). UNIQUE(user_id)
 - **system_config** — Config global (URLs Evolution, admin WA, dominio cardapio, webhook n8n)
 - **products** — Cardapio com categoria, imagem, disponivel, destaque
 - **product_categories** — Categorias com ordem

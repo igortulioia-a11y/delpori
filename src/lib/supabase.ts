@@ -178,6 +178,7 @@ export interface AutomationSettings {
   followup_delay_min: number | null;
   followup_max: number | null;
   followup_msg: string | null;
+  msg_retomada: string | null;
 }
 
 export interface Faq {
