@@ -6,7 +6,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { VersionChecker } from "@/components/VersionChecker";
 import { useState, Component, type ReactNode, type ErrorInfo } from "react";
+
+// Detecta erro de carregamento de chunk JS/CSS (classico apos novo deploy na Vercel:
+// cliente com JS antigo em memoria tenta baixar chunk que nao existe mais).
+function isChunkLoadError(error: Error): boolean {
+  if (error?.name === "ChunkLoadError") return true;
+  const msg = error?.message ?? "";
+  return /Loading chunk .* failed/i.test(msg) || /Loading CSS chunk/i.test(msg);
+}
 
 // Error boundary global — captura crashes do React (WebView, storage, etc)
 class GlobalErrorBoundary extends Component<
@@ -24,6 +33,23 @@ class GlobalErrorBoundary extends Component<
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("GlobalErrorBoundary:", error, errorInfo);
+
+    // Auto-recovery silencioso pra ChunkLoadError apos deploy.
+    // Protecao contra loop: so recarrega se nao recarregou nos ultimos 10s.
+    if (typeof window !== "undefined" && isChunkLoadError(error)) {
+      try {
+        const KEY = "__chunk_reload_at";
+        const last = Number(sessionStorage.getItem(KEY) ?? "0");
+        const now = Date.now();
+        if (now - last > 10_000) {
+          sessionStorage.setItem(KEY, String(now));
+          window.location.reload();
+          return;
+        }
+      } catch {
+        // sessionStorage pode falhar em WebView restritivo — cai pro fallback UI abaixo
+      }
+    }
   }
 
   render() {
@@ -60,6 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <AuthProvider>
               <NotificationProvider>
                 <Toaster />
+                <VersionChecker />
                 {children}
               </NotificationProvider>
             </AuthProvider>

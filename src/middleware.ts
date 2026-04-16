@@ -6,7 +6,7 @@ import type { NextRequest } from "next/server";
 const PUBLIC_ROUTES = ["/login", "/reset-password", "/update-password"];
 const PUBLIC_PREFIXES = ["/cardapio/"];
 // API routes publicas especificas (as demais exigem auth via Bearer token interno)
-const PUBLIC_API_ROUTES = ["/api/restaurant-phone"];
+const PUBLIC_API_ROUTES = ["/api/restaurant-phone", "/api/version"];
 
 function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_ROUTES.includes(pathname)) return true;
