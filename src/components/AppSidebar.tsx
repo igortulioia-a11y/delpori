@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, ClipboardList, Package,
-  Zap, Settings, UtensilsCrossed, LogOut, Sun, Moon, Bell, BellOff,
+  Zap, Settings, LogOut, Sun, Moon, Bell, BellOff,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/contexts/AuthContext";
