@@ -8,3 +8,6 @@ node_modules/
 
 # Backups locais / trabalho de bastidor (nao commitar)
 memory/
+
+# Documentacao interna pro Claude Code (nao expor em repo publico)
+CLAUDE.md
