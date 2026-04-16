@@ -458,6 +458,11 @@ export default function Orders() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-sm tabular-nums">#{order.numero}</span>
+                          {order.taxa_entrega === 0 && (
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
+                              Retirada
+                            </Badge>
+                          )}
                           {isAltered && (
                             <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-orange-500/15 border-orange-500/30 text-orange-700 dark:text-orange-400">
                               Alterado
