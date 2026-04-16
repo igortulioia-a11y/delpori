@@ -275,14 +275,14 @@ export default function Orders() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("nome, telefone_cozinha")
+      .select("nome, telefone")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
         if (data) {
           setRestaurante({
             nome: data.nome || "Delpori",
-            telefone: data.telefone_cozinha,
+            telefone: data.telefone,
           });
         }
       });
