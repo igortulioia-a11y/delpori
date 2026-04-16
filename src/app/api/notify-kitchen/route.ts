@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         `
         id, numero, total, pagamento, endereco_entrega, observacao,
         customers ( nome, telefone ),
-        order_items ( nome, quantidade, preco_unit, observacao )
+        order_items ( nome, quantidade, preco_unit, observacao, opcoes_selecionadas )
       `,
       )
       .eq("id", parsed.data.orderId)
@@ -105,6 +105,7 @@ export async function POST(request: Request) {
       quantidade: number;
       preco_unit: number;
       observacao: string | null;
+      opcoes_selecionadas: Array<{ grupo: string; nome: string; preco_adicional: number }> | null;
     }> | null) || [];
 
     if (items.length === 0) {
@@ -116,8 +117,10 @@ export async function POST(request: Request) {
 
     const itemsText = items
       .map((i) => {
+        const opts = i.opcoes_selecionadas?.length
+          ? `\n  ${i.opcoes_selecionadas.map(o => o.nome).join(", ")}` : "";
         const obs = i.observacao ? ` (${i.observacao})` : "";
-        return `• ${i.quantidade}x ${i.nome}${obs}`;
+        return `• ${i.quantidade}x ${i.nome}${obs}${opts}`;
       })
       .join("\n");
 

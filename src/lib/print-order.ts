@@ -12,7 +12,7 @@ export interface OrderForPrint {
   payment_method: string;
   payment_raw: string;
   address: string;
-  items: { nome: string; qty: number; preco: number; obs?: string }[];
+  items: { nome: string; qty: number; preco: number; obs?: string; opcoes_selecionadas?: { grupo: string; nome: string; preco_adicional: number }[] }[];
   created_at: string;
   alterado_em: string | null;
   status?: string;
@@ -82,7 +82,7 @@ export function buildReceiptHTML(
       (i) => `
       <tr class="item">
         <td class="item-qty">${i.qty}x</td>
-        <td class="item-nome">${escapeHtml(i.nome)}${i.obs ? `<div class="item-obs">** ${escapeHtml(i.obs)} **</div>` : ""}</td>
+        <td class="item-nome">${escapeHtml(i.nome)}${i.opcoes_selecionadas?.length ? `<div class="item-opts">${i.opcoes_selecionadas.map(o => escapeHtml(o.nome)).join(", ")}</div>` : ""}${i.obs ? `<div class="item-obs">** ${escapeHtml(i.obs)} **</div>` : ""}</td>
         <td class="item-preco">${formatMoney(i.preco * i.qty)}</td>
       </tr>`,
     )
@@ -239,6 +239,11 @@ export function buildReceiptHTML(
   }
   .item-nome {
     text-align: left;
+  }
+  .item-opts {
+    font-size: 3mm;
+    font-style: italic;
+    margin-top: 0.3mm;
   }
   .item-obs {
     font-weight: bold;

@@ -24,11 +24,18 @@ import { printOrder, type RestauranteForPrint } from "@/lib/print-order";
 type SortKey = "numero" | "customer_name" | "total" | "status" | "created_at";
 type SortDir = "asc" | "desc";
 
+interface SelectedOptionLocal {
+  grupo: string;
+  nome: string;
+  preco_adicional: number;
+}
+
 interface OrderItemLocal {
   nome: string;
   qty: number;
   preco: number;
   obs?: string;
+  opcoes_selecionadas?: SelectedOptionLocal[];
 }
 
 interface Order {
@@ -131,8 +138,10 @@ function getDateRange(filter: DateFilter): { fromISO?: string; toISO?: string } 
 function formatItems(items: Order["items"]) {
   if (!items || !Array.isArray(items)) return "—";
   return items.map(i => {
+    const optsText = i.opcoes_selecionadas?.length
+      ? ` [${i.opcoes_selecionadas.map(o => o.nome).join(", ")}]` : "";
     const obsText = i.obs ? ` (${i.obs})` : "";
-    return `${i.qty}x ${i.nome}${obsText}`;
+    return `${i.qty}x ${i.nome}${optsText}${obsText}`;
   }).join(", ");
 }
 
@@ -190,7 +199,7 @@ export default function Orders() {
     payment_method: row.pagamento ? (pagamentoLabel[row.pagamento] || row.pagamento) : "",
     payment_raw: row.pagamento || "",
     address: row.endereco_entrega ?? "",
-    items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit, obs: i.observacao || "" })),
+    items: (row.order_items || []).map((i: any) => ({ nome: i.nome, qty: i.quantidade, preco: i.preco_unit, obs: i.observacao || "", opcoes_selecionadas: Array.isArray(i.opcoes_selecionadas) ? i.opcoes_selecionadas : [] })),
     created_at: row.criado_em,
     alterado_em: row.alterado_em,
   });
@@ -204,7 +213,7 @@ export default function Orders() {
       .select(`
         id, numero, customer_id, status, total, subtotal, taxa_entrega, desconto, pagamento, endereco_entrega, criado_em, alterado_em,
         customers ( nome, telefone ),
-        order_items ( nome, quantidade, preco_unit, observacao )
+        order_items ( nome, quantidade, preco_unit, observacao, opcoes_selecionadas )
       `)
       .eq("user_id", user.id)
       .in("status", ["novo", "em_preparo", "saiu_entrega"])
@@ -229,7 +238,7 @@ export default function Orders() {
       .select(`
         id, numero, customer_id, status, total, subtotal, taxa_entrega, desconto, pagamento, endereco_entrega, criado_em, alterado_em,
         customers ( nome, telefone ),
-        order_items ( nome, quantidade, preco_unit, observacao )
+        order_items ( nome, quantidade, preco_unit, observacao, opcoes_selecionadas )
       `, { count: "exact" })
       .eq("user_id", user.id);
 
@@ -784,6 +793,7 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
         quantidade: it.qty,
         preco_unit: it.preco,
         observacao: it.obs || null,
+        opcoes_selecionadas: it.opcoes_selecionadas?.length ? it.opcoes_selecionadas : null,
       })));
 
     if (insErr) {
@@ -895,6 +905,15 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
                     <div key={i} className="flex justify-between gap-2 text-sm">
                       <div className="flex-1 min-w-0">
                         <div>{item.qty}x {item.nome}</div>
+                        {item.opcoes_selecionadas && item.opcoes_selecionadas.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {item.opcoes_selecionadas.map((op, idx) => (
+                              <span key={idx} className="text-[11px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                                {op.nome}{op.preco_adicional > 0 ? ` +R$ ${op.preco_adicional.toFixed(2).replace(".", ",")}` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {item.obs && (
                           <div className="text-xs text-orange-600 dark:text-orange-400 italic mt-0.5">Obs: {item.obs}</div>
                         )}
@@ -908,8 +927,20 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
               // EDIT MODE
               <div className="space-y-2">
                 {editItems.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-secondary/40 rounded-lg p-2">
-                    <span className="flex-1 text-sm truncate">{item.nome}</span>
+                  <div key={i} className="bg-secondary/40 rounded-lg p-2">
+                    <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm truncate block">{item.nome}</span>
+                      {item.opcoes_selecionadas && item.opcoes_selecionadas.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {item.opcoes_selecionadas.map((op, idx) => (
+                            <span key={idx} className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-1 py-0.5 rounded">
+                              {op.nome}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                       <Button
                         size="icon"
@@ -941,6 +972,7 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
                     >
                       <X className="h-3 w-3" />
                     </Button>
+                    </div>
                   </div>
                 ))}
                 {editItems.length === 0 && (
