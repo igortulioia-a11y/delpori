@@ -178,16 +178,25 @@ function MenuDigitalInner() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Header */}
-      <header className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=400&fit=crop)" }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/80" />
+      <header className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-primary/70">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        </div>
         <div className="relative z-10 max-w-lg mx-auto px-4 pt-8 pb-6">
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">{profile?.nome || "Cardápio"}</h1>
-          <p className="text-white/70 text-sm mt-1">Peça pelo cardápio digital</p>
-          <div className="relative mt-4">
+          <div className="flex items-center gap-3 mb-3">
+            {profile?.logo_url ? (
+              <img src={profile.logo_url} alt={profile.nome || ""} className="w-14 h-14 rounded-2xl object-cover bg-white/20 shadow-lg ring-2 ring-white/30" />
+            ) : (
+              <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shadow-lg ring-2 ring-white/30">
+                <UtensilsCrossed className="h-7 w-7 text-white/80" />
+              </div>
+            )}
+            <div>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight">{profile?.nome || "Cardápio"}</h1>
+              <p className="text-white/70 text-sm">Peça pelo cardápio digital</p>
+            </div>
+          </div>
+          <div className="relative mt-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
             <input
               type="text"
