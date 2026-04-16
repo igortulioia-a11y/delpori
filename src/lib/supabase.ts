@@ -137,6 +137,7 @@ export interface Conversation {
   followup_count: number;
   followup_at: string | null;
   needs_followup: boolean;
+  fora_horario_pendente: boolean;
 }
 
 export interface Message {

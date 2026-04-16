@@ -55,7 +55,7 @@ externa sem afetar conversa humana).
 | jZtheFnaCtCJcMEd | WF4 - Humanizacao | Split paragrafos + envio sequencial |
 | gdrGvBBXhKwjU1Fa | WF5 - Error Handler | Captura erros, notifica admin via WA |
 | WbZdMZL1vTaTz8Iu | WF8 - Limpeza | Domingo 3h: deleta chat_histories > 30 dias |
-| HmcOyDFqxBTXiLwS | WF9 - Follow-up | A cada 5 min: conversas sem resposta |
+| HmcOyDFqxBTXiLwS | WF9 - Follow-up | A cada 5 min: conversas sem resposta. **Respeita horario de funcionamento** (SQL filtra `horario_ativo` + range BR). Salva follow-up enviado em `messages` (remetente=ia) |
 
 ---
 
@@ -63,12 +63,12 @@ externa sem afetar conversa humana).
 
 | Slug | Funcao |
 |------|--------|
-| webhook-evolution | Gateway: valida, deduplica, salva msg, cria conversa, encaminha n8n |
+| webhook-evolution | Gateway v17: valida, deduplica, salva msg, cria conversa, encaminha n8n. Horario: bloqueia fora + envia msg_fora_hora + marca `fora_horario_pendente=true` (coluna dedicada) pra retomada |
 | onboarding | Trigger auth.users INSERT: profile + settings + instancia Evolution |
 | get-whatsapp-qr | Gera QR code (validacao JWT manual) |
 | disconnect-whatsapp | Desconecta WA (validacao JWT manual) |
 | check-connection | pg_cron 1min: verifica status WA na Evolution |
-| cron-retomada | pg_cron 5min: reenvia msgs pendentes |
+| cron-retomada | v5, pg_cron 5min: retoma conversas com `fora_horario_pendente=true` assim que horario reabre (injeta fake payload da ultima msg do cliente no WF1, zera flag, seta `retomada_em`) |
 | cron-campanhas | pg_cron 5min: processa campanhas agendadas |
 
 ---
@@ -83,10 +83,10 @@ externa sem afetar conversa humana).
 - **product_categories** — Categorias com ordem
 - **delivery_zones** — Bairros[], taxa, tempo_estimado
 - **customers** — UNIQUE(user_id, telefone). Stats recalculadas por trigger
-- **conversations** — UNIQUE(user_id, cliente_tel). Status, ai_paused, needs_followup
+- **conversations** — UNIQUE(user_id, cliente_tel). Status, ai_paused, needs_followup, `fora_horario_pendente` (setado pelo webhook v17 quando cliente fala fora do horario; consumido pelo cron-retomada v5 na reabertura)
 - **messages** — Remetente: cliente/atendente/ia. Dedup parcial por whatsapp_msg_id
 - **orders** — Status: novo→em_preparo→saiu_entrega→entregue→cancelado. Obs: o enum Postgres `order_status` ainda tem `confirmado` (legacy — 1 pedido historico de outro user). Front nao usa mais esse status, IA nao move pra ele, prompt WF2 nao menciona mais.
-- **order_items** — FK orders CASCADE, products SET NULL. Coluna `opcoes_selecionadas` (JSONB, nullable) — fase 1: pode ficar null. Fase 2: IA via WF3 preenche ao parsear mensagem do cardapio.
+- **order_items** — FK orders CASCADE, products SET NULL. Coluna `opcoes_selecionadas` (JSONB, nullable) — IA via WF3 preenche ao criar pedido. Exibido no kanban (badges), sheet detalhes, cupom termico e msg cozinha.
 - **campaigns** — Campanhas em massa (rascunho/agendada/enviada)
 - **campaign_messages** — Msgs individuais de campanha
 - **team_members** — Membros com permissoes por aba
