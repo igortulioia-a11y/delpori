@@ -479,10 +479,10 @@ export default function Orders() {
                       {nextStatus[order.status] && (
                         <Button
                           size="sm"
-                          className="h-7 px-2 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                          className="h-6 px-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                           onClick={() => changeStatus(order.id, nextStatus[order.status]!)}
                         >
-                          <ChevronRight className="h-4 w-4" />
+                          <ChevronRight className="h-3.5 w-3.5" />
                         </Button>
                       )}
                     </div>
