@@ -79,11 +79,7 @@ const TUTORIAIS: Tutorial[] = [
 export default function Tutoriais() {
   const [playing, setPlaying] = useState<Tutorial | null>(null);
 
-  // Cache-buster do thumbnail. Quando atualizar a thumbnail no YouTube,
-  // incrementar este numero pra forcar todos os browsers a re-baixarem.
-  const THUMB_VERSION = "2";
-  const thumbUrl = (id: string) =>
-    `https://img.youtube.com/vi/${id}/hqdefault.jpg?v=${THUMB_VERSION}`;
+  const thumbUrl = (id: string) => `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
   // vq=hd1080 sugere ao YouTube comecar em HD se disponivel.
   const embedUrl = (id: string) =>
     `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&autoplay=1&vq=hd1080`;
