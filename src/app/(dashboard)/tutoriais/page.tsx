@@ -79,9 +79,18 @@ const TUTORIAIS: Tutorial[] = [
 export default function Tutoriais() {
   const [playing, setPlaying] = useState<Tutorial | null>(null);
 
-  const thumbUrl = (id: string) => `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+  // Cache-buster do thumbnail. Quando atualizar a thumbnail no YouTube,
+  // incrementar este numero pra forcar todos os browsers a re-baixarem.
+  const THUMB_VERSION = "2";
+  // maxresdefault tem qualidade maior; cai pra hqdefault se nao existir
+  // (quando thumb personalizada nao foi gerada ainda pelo YouTube).
+  const thumbUrl = (id: string) =>
+    `https://img.youtube.com/vi/${id}/maxresdefault.jpg?v=${THUMB_VERSION}`;
+  const thumbFallback = (id: string) =>
+    `https://img.youtube.com/vi/${id}/hqdefault.jpg?v=${THUMB_VERSION}`;
+  // vq=hd1080 sugere ao YouTube comecar em HD se disponivel.
   const embedUrl = (id: string) =>
-    `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&autoplay=1`;
+    `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&autoplay=1&vq=hd1080`;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1400px] mx-auto">
@@ -102,11 +111,40 @@ export default function Tutoriais() {
           >
             {/* Thumbnail */}
             <div className="relative aspect-video bg-secondary overflow-hidden">
+              {/* Fallback gradiente quando YouTube ainda nao processou thumb */}
+              <div
+                className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-secondary"
+                aria-hidden="true"
+              />
               <img
                 src={thumbUrl(t.youtubeId)}
                 alt={t.titulo}
-                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                className="relative w-full h-full object-cover transition-transform group-hover:scale-105"
                 loading="lazy"
+                onLoad={(e) => {
+                  // YouTube retorna placeholder cinza 120x90 quando a thumb
+                  // ainda nao foi processada/propagada. Tentamos primeiro fallback
+                  // pra hqdefault; se ainda for placeholder, escondemos a img
+                  // pra mostrar o gradiente atras dela (visual mais limpo que cinza).
+                  const img = e.currentTarget;
+                  if (img.naturalWidth < 200) {
+                    if (!img.dataset.fallback) {
+                      img.dataset.fallback = "1";
+                      img.src = thumbFallback(t.youtubeId);
+                    } else {
+                      img.style.display = "none";
+                    }
+                  }
+                }}
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (!img.dataset.fallback) {
+                    img.dataset.fallback = "1";
+                    img.src = thumbFallback(t.youtubeId);
+                  } else {
+                    img.style.display = "none";
+                  }
+                }}
               />
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                 <div className="h-14 w-14 rounded-full bg-white/95 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
