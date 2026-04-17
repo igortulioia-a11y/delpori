@@ -107,6 +107,24 @@ function parseLista(text: string): ListaDestinatario[] {
   return out;
 }
 
+// Converte string do <input type="datetime-local"> ("YYYY-MM-DDTHH:MM") em ISO
+// com offset BR (-03:00). Sem isso, Postgres timestamptz interpreta como UTC e
+// dispara a campanha 3h antes do esperado.
+function localBrToISO(localDateTime: string): string | null {
+  if (!localDateTime) return null;
+  return `${localDateTime}:00-03:00`;
+}
+
+// Converte ISO timestamptz (do banco) de volta para "YYYY-MM-DDTHH:MM" no fuso BR,
+// pra preencher o input datetime-local na edicao sem deslocamento de 3h.
+function isoToLocalBr(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  // sv-SE retorna formato "YYYY-MM-DD HH:MM:SS"
+  const brStr = d.toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" });
+  return brStr.replace(" ", "T").slice(0, 16);
+}
+
 const templates: Record<string, string> = {
   promocao: "Ola {nome}! Temos uma promocao especial para voce. Aproveite nossos precos exclusivos somente hoje! Faca seu pedido pelo WhatsApp.",
   cupom: "Ola {nome}! Voce ganhou um cupom de desconto exclusivo. Use o codigo DESCONTO10 no seu proximo pedido e ganhe 10% OFF!",
@@ -364,9 +382,7 @@ export default function Automations() {
       lista_texto: c.lista_destinatarios
         ? c.lista_destinatarios.map(d => `${d.nome},${d.telefone}`).join("\n")
         : "",
-      agendado_para: c.agendado_para
-        ? new Date(c.agendado_para).toISOString().slice(0, 16)
-        : "",
+      agendado_para: isoToLocalBr(c.agendado_para),
     });
     setCampaignDialog(true);
   };
@@ -388,6 +404,29 @@ export default function Automations() {
 
     const usaFiltroNumerico = campaignForm.filtro_tipo !== "todos" && campaignForm.filtro_tipo !== "lista";
 
+    // Validar agendamento no futuro (input datetime-local em fuso BR)
+    const agendadoIso = localBrToISO(campaignForm.agendado_para);
+    if (agendadoIso) {
+      if (new Date(agendadoIso).getTime() <= Date.now()) {
+        toast({ title: "Agendamento invalido", description: "Escolha uma data e hora futura.", variant: "destructive" });
+        return;
+      }
+    }
+
+    // Se for envio imediato, exigir WhatsApp conectado ANTES de marcar como "enviando"
+    // (evita campanhas travadas em "enviando" pra sempre — bug de race condition)
+    if (sendNow) {
+      const { data: settings } = await supabase
+        .from("automation_settings")
+        .select("whatsapp_status")
+        .eq("user_id", user.id)
+        .single();
+      if (settings?.whatsapp_status !== "conectado") {
+        toast({ title: "WhatsApp desconectado", description: "Conecte o WhatsApp em Configuracoes antes de enviar.", variant: "destructive" });
+        return;
+      }
+    }
+
     const data = {
       user_id: user.id,
       nome: campaignForm.nome,
@@ -396,8 +435,8 @@ export default function Automations() {
       filtro_tipo: campaignForm.filtro_tipo,
       filtro_valor: usaFiltroNumerico ? campaignForm.filtro_valor : null,
       lista_destinatarios: listaParsed,
-      status: sendNow ? "enviando" : (campaignForm.agendado_para ? "agendada" : "rascunho"),
-      agendado_para: campaignForm.agendado_para || null,
+      status: sendNow ? "enviando" : (agendadoIso ? "agendada" : "rascunho"),
+      agendado_para: agendadoIso,
       total_destinatarios: 0,
       total_enviados: 0,
       total_erros: 0,

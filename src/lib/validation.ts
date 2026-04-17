@@ -69,7 +69,7 @@ export const sendCampaignMessageSchema = z.object({
     .max(20)
     .regex(/^[\d\s()+\-]+$/),
   mensagem: z.string().min(1).max(4096),
-  customerId: z.string().uuid("ID do cliente inválido"),
+  customerId: z.string().uuid("ID do cliente inválido").optional(),
 });
 
 export const notifyOrderStatusSchema = z.object({
