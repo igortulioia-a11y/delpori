@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, ClipboardList, Package,
-  Zap, Settings, LogOut, Sun, Moon, Bell, BellOff,
+  Zap, Settings, LogOut, Sun, Moon, Bell, BellOff, PlayCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,7 @@ const allNavItems = [
   { title: "Pedidos",       url: "/pedidos",        icon: ClipboardList,   key: "pedidos" },
   { title: "Cardápio",      url: "/produtos",       icon: Package,         key: "cardapio" },
   { title: "Automações",    url: "/automacoes",     icon: Zap,             key: "automacoes" },
+  { title: "Tutoriais",     url: "/tutoriais",      icon: PlayCircle,      key: "tutoriais",    alwaysVisible: true },
   { title: "Configurações", url: "/configuracoes",  icon: Settings,        key: "configuracoes" },
 ];
 
@@ -31,10 +32,10 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps) {
   const { theme, setTheme } = useTheme();
   const { soundEnabled, toggleSound } = useNotifications();
 
-  // Owner vê tudo; member vê só as abas permitidas
+  // Owner vê tudo; member vê só as abas permitidas + sempre-visíveis (tutoriais)
   const navItems = teamRole === "owner"
     ? allNavItems
-    : allNavItems.filter(item => permissoes.includes(item.key));
+    : allNavItems.filter(item => item.alwaysVisible || permissoes.includes(item.key));
 
   const displayName = profile?.nome ?? user?.email?.split("@")[0] ?? "Usuário";
   const initials = displayName.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase();
