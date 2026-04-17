@@ -56,15 +56,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex flex-col flex-1 min-w-0">
         {/* Top bar — só no mobile */}
-        <header className="flex md:hidden items-center gap-3 px-4 h-14 border-b border-border bg-background shrink-0">
+        <header className="flex md:hidden items-center gap-3 px-4 h-14 border-b border-sidebar-border bg-sidebar shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sidebar-foreground hover:text-white transition-colors"
+            aria-label="Abrir menu"
           >
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2">
             <img src="/logo-icon.png" alt="Delpori" className="h-7 w-7" />
+            <span className="text-sm font-semibold text-white">Delpori</span>
           </div>
         </header>
 
