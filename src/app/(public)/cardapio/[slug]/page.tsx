@@ -710,7 +710,7 @@ function ProductOptionsSheetInner({
         </div>
         <Button
           className="w-full h-13 rounded-2xl text-sm font-bold shadow-lg"
-          disabled={!isValid}
+          disabled={loading || !isValid}
           onClick={() => onConfirm(flatSelected, qty)}
         >
           Adicionar ao carrinho — R$ {total.toFixed(2).replace(".", ",")}
