@@ -775,20 +775,20 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
     }
     setSavingEdit(true);
 
-    // 1. DELETE todos os items antigos
-    const { error: delErr } = await supabase
+    // 1. Pegar IDs dos items antigos (pra deletar pelos IDs especificos depois)
+    const { data: oldItems, error: getErr } = await supabase
       .from("order_items")
-      .delete()
+      .select("id")
       .eq("order_id", order.id)
       .eq("user_id", user.id);
 
-    if (delErr) {
-      toast({ title: "Erro ao salvar", description: delErr.message, variant: "destructive" });
+    if (getErr) {
+      toast({ title: "Erro ao salvar", description: getErr.message, variant: "destructive" });
       setSavingEdit(false);
       return;
     }
 
-    // 2. INSERT novos items
+    // 2. INSERT novos items PRIMEIRO (assim, se falhar, items antigos preservados)
     const { error: insErr } = await supabase
       .from("order_items")
       .insert(editItems.map(it => ({
@@ -805,6 +805,20 @@ function OrderDetailSheet({ order, onStatusChange, onOrderEdited, restaurante, t
       toast({ title: "Erro ao salvar", description: insErr.message, variant: "destructive" });
       setSavingEdit(false);
       return;
+    }
+
+    // 3. DELETE items antigos pelos IDs especificos. Se falhar, items duplicados — avisa user mas nao bloqueia (dado preservado).
+    if (oldItems && oldItems.length > 0) {
+      const oldIds = oldItems.map(i => i.id);
+      const { error: delErr } = await supabase
+        .from("order_items")
+        .delete()
+        .in("id", oldIds)
+        .eq("user_id", user.id);
+
+      if (delErr) {
+        toast({ title: "Items salvos (com aviso)", description: "Items antigos podem aparecer duplicados — verifique o pedido.", variant: "destructive" });
+      }
     }
 
     // 3. UPDATE order (subtotal + total + alterado_em)

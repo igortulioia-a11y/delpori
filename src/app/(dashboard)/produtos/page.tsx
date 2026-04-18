@@ -260,6 +260,9 @@ export default function Products() {
 
   const deleteProduct = async (id: string) => {
     if (!user) return;
+    const product = products.find(p => p.id === id);
+    if (!confirm(`Excluir "${product?.nome ?? "este produto"}"? Essa acao nao pode ser desfeita.`)) return;
+
     const { error } = await supabase
       .from("products")
       .delete()

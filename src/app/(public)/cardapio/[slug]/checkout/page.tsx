@@ -193,7 +193,13 @@ function MenuCheckoutInner() {
 
       // Abrir WhatsApp com a mensagem
       const waUrl = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(mensagem)}`;
-      window.open(waUrl, "_blank");
+      const popup = window.open(waUrl, "_blank");
+
+      // Se popup foi bloqueado, NAO limpar carrinho — cliente perderia tudo
+      if (!popup) {
+        setError("Nao foi possivel abrir o WhatsApp. Verifique se popups estao bloqueados no seu navegador e tente novamente.");
+        return;
+      }
 
       clearCart();
       setConfirmed(true);
