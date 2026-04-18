@@ -505,11 +505,6 @@ export default function SettingsPage() {
                       <RefreshCw className="h-4 w-4" />
                     </Button>
                   </div>
-                  {waInfo?.evolution_instance && (
-                    <p className="text-xs text-muted-foreground mt-3 font-mono bg-secondary/50 rounded px-2 py-1">
-                      Instância: {waInfo.evolution_instance}
-                    </p>
-                  )}
                 </CardContent>
               </Card>
 
