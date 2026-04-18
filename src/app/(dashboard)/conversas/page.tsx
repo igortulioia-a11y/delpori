@@ -481,6 +481,12 @@ function ConversationsInner() {
         body: JSON.stringify({ telefone, mensagem: text }),
       }).catch(() => {});
     }
+    await supabase.from("conversations")
+      .update({ atualizado_em: new Date().toISOString(), ai_paused: true })
+      .eq("id", selectedId);
+    setConversations(prev => prev.map(c =>
+      c.id === selectedId ? { ...c, ai_paused: true, atualizado_em: new Date().toISOString() } : c
+    ));
   };
 
   const resumeAi = async () => {

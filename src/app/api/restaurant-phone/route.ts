@@ -35,17 +35,24 @@ export async function GET(request: Request) {
 
   const { data: settings } = await supabaseAdmin
     .from("automation_settings")
-    .select("whatsapp_phone, whatsapp_status, taxa_entrega, formas_pagamento")
+    .select("whatsapp_phone, whatsapp_status, taxa_entrega, formas_pagamento, horario_ativo, horario_inicio, horario_fim")
     .eq("user_id", profile.id)
     .single();
 
+  const hours = {
+    horario_ativo: settings?.horario_ativo ?? null,
+    horario_inicio: settings?.horario_inicio ?? null,
+    horario_fim: settings?.horario_fim ?? null,
+  };
+
   if (!settings?.whatsapp_phone || settings.whatsapp_status !== "conectado") {
-    return NextResponse.json({ phone: null, taxa_entrega: null, formas_pagamento: null });
+    return NextResponse.json({ phone: null, taxa_entrega: null, formas_pagamento: null, hours });
   }
 
   return NextResponse.json({
     phone: settings.whatsapp_phone,
     taxa_entrega: settings.taxa_entrega ? Number(settings.taxa_entrega) : null,
     formas_pagamento: settings.formas_pagamento || null,
+    hours,
   });
 }

@@ -19,6 +19,7 @@ import {
   type ProductOptionGroup,
   type SelectedOption,
 } from "@/lib/product-options";
+import { isBusinessOpen, formatHours, type BusinessHours } from "@/lib/business-hours";
 
 interface ProfileData {
   id: string;
@@ -47,6 +48,8 @@ function MenuDigitalInner() {
   const [dailySpecial, setDailySpecial] = useState<{ product_id: string; preco_promocional: number } | null>(null);
   const [productsWithOptions, setProductsWithOptions] = useState<Set<string>>(new Set());
   const [optsProduct, setOptsProduct] = useState<Product | null>(null);
+  const [hours, setHours] = useState<BusinessHours | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -106,6 +109,20 @@ function MenuDigitalInner() {
         setProductsWithOptions(new Set());
       }
 
+      // Horario de funcionamento
+      const { data: hoursData } = await supabase
+        .from("automation_settings")
+        .select("horario_ativo, horario_inicio, horario_fim")
+        .eq("user_id", profileData.id)
+        .maybeSingle();
+      const h: BusinessHours = {
+        horario_ativo: hoursData?.horario_ativo ?? null,
+        horario_inicio: hoursData?.horario_inicio ?? null,
+        horario_fim: hoursData?.horario_fim ?? null,
+      };
+      setHours(h);
+      setIsOpen(isBusinessOpen(h));
+
       // Prato do dia
       const today = new Date().getDay();
       const { data: specialData } = await supabase
@@ -135,6 +152,14 @@ function MenuDigitalInner() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
+  useEffect(() => {
+    if (!hours) return;
+    const tick = () => setIsOpen(isBusinessOpen(hours));
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [hours]);
 
   const filtered = produtos
     .filter(p => activeCategory === "Todos" || p.categoria === activeCategory)
@@ -203,9 +228,17 @@ function MenuDigitalInner() {
                 <UtensilsCrossed className="h-7 w-7 text-white/80" />
               </div>
             )}
-            <div>
+            <div className="min-w-0 flex-1">
               <h1 className="text-2xl font-extrabold text-white tracking-tight">{profile?.nome || "Cardápio"}</h1>
-              <p className="text-white/70 text-sm">Peça pelo cardápio digital</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${isOpen ? "bg-emerald-400/20 text-emerald-50 ring-1 ring-emerald-300/40" : "bg-rose-500/25 text-rose-50 ring-1 ring-rose-300/40"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isOpen ? "bg-emerald-300" : "bg-rose-300"}`} />
+                  {isOpen ? "Aberto agora" : "Fechado"}
+                </span>
+                {formatHours(hours) && (
+                  <span className="text-white/70 text-[11px]">{formatHours(hours)}</span>
+                )}
+              </div>
             </div>
           </div>
           <div className="relative mt-2">
@@ -472,9 +505,15 @@ function MenuDigitalInner() {
                   <Button
                     className="w-full h-13 rounded-2xl text-sm font-bold shadow-lg"
                     onClick={goToCheckout}
+                    disabled={!isOpen}
                   >
-                    Finalizar pedido
+                    {isOpen ? "Finalizar pedido" : "Fechado no momento"}
                   </Button>
+                  {!isOpen && (
+                    <p className="text-[11px] text-muted-foreground text-center -mt-1">
+                      Volte no horário de atendimento{formatHours(hours) ? ` (${formatHours(hours)})` : ""} para finalizar.
+                    </p>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>

@@ -12,6 +12,7 @@ import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/lib/supabase";
 import { normalizeSlug } from "@/lib/utils";
 import { unitPriceWithOptions } from "@/lib/product-options";
+import { isBusinessOpen, formatHours, type BusinessHours } from "@/lib/business-hours";
 
 function MenuCheckoutInner() {
   const params = useParams();
@@ -33,6 +34,8 @@ function MenuCheckoutInner() {
   const [whatsappPhone, setWhatsappPhone] = useState<string | null>(null);
   const [defaultTaxaEntrega, setDefaultTaxaEntrega] = useState<number | null>(null);
   const [enabledPayments, setEnabledPayments] = useState<string[]>([]);
+  const [hours, setHours] = useState<BusinessHours | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
 
   // Load WhatsApp phone + taxa + formas de pagamento do restaurante
   useEffect(() => {
@@ -46,11 +49,23 @@ function MenuCheckoutInner() {
           if (data.formas_pagamento) {
             setEnabledPayments(data.formas_pagamento.split(",").map((s: string) => s.trim()).filter(Boolean));
           }
+          if (data.hours) {
+            setHours(data.hours);
+            setIsOpen(isBusinessOpen(data.hours));
+          }
         }
       } catch { /* silencioso */ }
     }
     loadData();
   }, [slug]);
+
+  useEffect(() => {
+    if (!hours) return;
+    const tick = () => setIsOpen(isBusinessOpen(hours));
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [hours]);
 
   const deliveryFee = isPickup ? 0 : (defaultTaxaEntrega ?? 0);
   const finalTotal = totalPrice + deliveryFee;
@@ -88,9 +103,22 @@ function MenuCheckoutInner() {
           <p className="text-muted-foreground text-sm">
             Você foi redirecionado para o WhatsApp com seu pedido. Envie a mensagem para confirmar!
           </p>
-          <Button variant="outline" onClick={() => router.push(`/cardapio/${slug}`)}>
-            Voltar ao cardápio
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => {
+                clearCart();
+                router.push(`/cardapio/${slug}`);
+              }}
+            >
+              Fazer um novo pedido
+            </Button>
+            <Button variant="outline" onClick={() => router.push(`/cardapio/${slug}`)}>
+              Voltar mantendo o carrinho
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground pt-2">
+            Se algo deu errado no WhatsApp, use &quot;Voltar mantendo o carrinho&quot; para tentar de novo.
+          </p>
         </div>
       </div>
     );
@@ -148,7 +176,9 @@ function MenuCheckoutInner() {
         return;
       }
 
-      clearCart();
+      // Nao limpa o carrinho automaticamente: se o cliente desistir no WhatsApp
+      // e voltar ao cardapio, queremos que ele reencontre os itens.
+      // A limpeza fica no botao "Voltar ao cardapio" da tela "Quase la".
       setConfirmed(true);
     } catch {
       setError("Erro ao redirecionar para o WhatsApp. Tente novamente.");
@@ -157,7 +187,7 @@ function MenuCheckoutInner() {
     }
   };
 
-  const isValid = name.trim() && phone.trim() && (isPickup || address.trim()) && payment && !!whatsappPhone;
+  const isValid = name.trim() && phone.trim() && (isPickup || address.trim()) && payment && !!whatsappPhone && isOpen;
 
   return (
     <div className="min-h-screen bg-background">
@@ -314,6 +344,12 @@ function MenuCheckoutInner() {
           </div>
         )}
 
+        {!isOpen && (
+          <div className="bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 text-sm rounded-xl px-4 py-3">
+            Fechado no momento{formatHours(hours) ? ` — abrimos ${formatHours(hours)}` : ""}. Volte no horário de atendimento para finalizar.
+          </div>
+        )}
+
         <Button
           className="w-full h-13 rounded-2xl text-sm font-bold shadow-lg"
           disabled={!isValid || loading}
@@ -321,6 +357,8 @@ function MenuCheckoutInner() {
         >
           {loading ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Redirecionando...</>
+          ) : !isOpen ? (
+            <>Fechado no momento</>
           ) : (
             <>
               <MessageCircle className="mr-2 h-4 w-4" />
