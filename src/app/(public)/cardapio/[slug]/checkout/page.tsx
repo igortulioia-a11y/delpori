@@ -13,15 +13,6 @@ import { supabase } from "@/lib/supabase";
 import { normalizeSlug } from "@/lib/utils";
 import { unitPriceWithOptions } from "@/lib/product-options";
 
-interface DeliveryZone {
-  id: string;
-  nome: string;
-  bairros: string[];
-  taxa: number;
-  tempo_estimado: number;
-  ativo: boolean;
-}
-
 function MenuCheckoutInner() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -43,31 +34,9 @@ function MenuCheckoutInner() {
   const [defaultTaxaEntrega, setDefaultTaxaEntrega] = useState<number | null>(null);
   const [enabledPayments, setEnabledPayments] = useState<string[]>([]);
 
-  // Delivery zones
-  const [zones, setZones] = useState<DeliveryZone[]>([]);
-  const [matchedZone, setMatchedZone] = useState<DeliveryZone | null>(null);
-  const [zoneError, setZoneError] = useState("");
-
-  // Load delivery zones + WhatsApp phone
+  // Load WhatsApp phone + taxa + formas de pagamento do restaurante
   useEffect(() => {
     async function loadData() {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("slug", normalizeSlug(slug))
-        .single();
-
-      if (!profile) return;
-
-      const { data: zonesData } = await supabase
-        .from("delivery_zones")
-        .select("*")
-        .eq("user_id", profile.id)
-        .eq("ativo", true);
-
-      setZones(zonesData || []);
-
-      // Buscar telefone WhatsApp e taxa de entrega padrão do restaurante
       try {
         const res = await fetch(`/api/restaurant-phone?slug=${encodeURIComponent(normalizeSlug(slug))}`);
         if (res.ok) {
@@ -83,37 +52,7 @@ function MenuCheckoutInner() {
     loadData();
   }, [slug]);
 
-  // Match zone when address changes
-  useEffect(() => {
-    if (isPickup || !address.trim() || zones.length === 0) {
-      setMatchedZone(null);
-      setZoneError("");
-      return;
-    }
-
-    // Match de bairro usando word boundaries — "Centro" nao mais matcha "Avenida Centro Oeste"
-    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const lowerAddr = address.toLowerCase();
-    const found = zones.find(z =>
-      z.bairros.some(b => {
-        const bairro = b.trim().toLowerCase();
-        if (!bairro) return false;
-        const pattern = new RegExp(`\\b${escapeRegex(bairro)}\\b`, "i");
-        return pattern.test(lowerAddr);
-      })
-    );
-
-    if (found) {
-      setMatchedZone(found);
-      setZoneError("");
-    } else {
-      setMatchedZone(null);
-      setZoneError("Não identificamos sua região de entrega. Verifique o endereço ou entre em contato.");
-    }
-  }, [address, zones, isPickup]);
-
-  const deliveryFee = isPickup ? 0 : (matchedZone?.taxa ?? (zones.length === 0 ? (defaultTaxaEntrega ?? 0) : 0));
-  const hasValidDelivery = isPickup || zones.length === 0 || !!matchedZone;
+  const deliveryFee = isPickup ? 0 : (defaultTaxaEntrega ?? 0);
   const finalTotal = totalPrice + deliveryFee;
 
   const allPaymentOptions = [
@@ -159,7 +98,6 @@ function MenuCheckoutInner() {
 
   const handleConfirm = () => {
     if (!name.trim() || !phone.trim() || (!isPickup && !address.trim()) || !payment) return;
-    if (!isPickup && zones.length > 0 && !matchedZone) return;
     if (!whatsappPhone) return;
 
     setLoading(true);
@@ -219,7 +157,7 @@ function MenuCheckoutInner() {
     }
   };
 
-  const isValid = name.trim() && phone.trim() && (isPickup || address.trim()) && payment && hasValidDelivery && !!whatsappPhone;
+  const isValid = name.trim() && phone.trim() && (isPickup || address.trim()) && payment && !!whatsappPhone;
 
   return (
     <div className="min-h-screen bg-background">
@@ -270,14 +208,9 @@ function MenuCheckoutInner() {
                 {isPickup ? "Retirada no local" : "Taxa de entrega"}
               </span>
               <span className={`font-medium ${isPickup ? "text-primary" : ""}`}>
-                {isPickup ? "Grátis" : deliveryFee > 0 ? `R$ ${deliveryFee.toFixed(2).replace(".", ",")}` : zones.length === 0 ? "Grátis" : "—"}
+                {isPickup ? "Grátis" : deliveryFee > 0 ? `R$ ${deliveryFee.toFixed(2).replace(".", ",")}` : "Grátis"}
               </span>
             </div>
-            {matchedZone && !isPickup && (
-              <p className="text-xs text-muted-foreground">
-                Região: {matchedZone.nome} — Tempo estimado: ~{matchedZone.tempo_estimado} min
-              </p>
-            )}
             <Separator />
             <div className="flex justify-between font-bold text-base">
               <span>Total</span>
@@ -345,9 +278,6 @@ function MenuCheckoutInner() {
                 onChange={e => setAddress(e.target.value)}
                 className="rounded-xl"
               />
-              {zoneError && address.trim() && (
-                <p className="text-xs text-amber-600">{zoneError}</p>
-              )}
             </div>
           )}
         </section>

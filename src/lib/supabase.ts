@@ -191,17 +191,6 @@ export interface Faq {
   criado_em: string;
 }
 
-export interface DeliveryZone {
-  id: string;
-  user_id: string;
-  nome: string;
-  bairros: string[];
-  taxa: number;
-  tempo_estimado: number;
-  ativo: boolean;
-  criado_em: string;
-}
-
 export interface DailySpecial {
   id: string;
   user_id: string;
