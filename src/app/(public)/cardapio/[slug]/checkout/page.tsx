@@ -200,10 +200,12 @@ function MenuCheckoutInner() {
 
       // Abrir WhatsApp com a mensagem
       const waUrl = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(mensagem)}`;
+      const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       const popup = window.open(waUrl, "_blank");
 
-      // Se popup foi bloqueado, NAO limpar carrinho — cliente perderia tudo
-      if (!popup) {
+      // Em mobile, iOS/Android interceptam wa.me como deep link e window.open retorna null
+      // naturalmente — nao significa popup bloqueado. Em desktop, null = bloqueio real.
+      if (!popup && !isMobile) {
         setError("Nao foi possivel abrir o WhatsApp. Verifique se popups estao bloqueados no seu navegador e tente novamente.");
         return;
       }
