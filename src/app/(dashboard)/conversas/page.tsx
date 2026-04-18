@@ -399,10 +399,18 @@ function ConversationsInner() {
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({ telefone, mensagem: text }),
-      }).catch((err) => {
-        console.error("[sendMessage] WhatsApp send error:", err);
-        toast({ title: "Mensagem salva, mas falha ao enviar via WhatsApp", variant: "destructive" });
-      });
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            // Erro HTTP nao dispara catch — precisa checar res.ok
+            console.error("[sendMessage] WhatsApp send failed:", res.status);
+            toast({ title: "Mensagem salva, mas falha ao enviar via WhatsApp", variant: "destructive" });
+          }
+        })
+        .catch((err) => {
+          console.error("[sendMessage] WhatsApp send error:", err);
+          toast({ title: "Mensagem salva, mas falha ao enviar via WhatsApp", variant: "destructive" });
+        });
     }
 
     await supabase.from("conversations")

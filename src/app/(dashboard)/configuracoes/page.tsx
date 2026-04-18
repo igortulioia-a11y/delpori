@@ -39,7 +39,7 @@ const abasDisponiveis = [
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type WAStatus = "pendente" | "aguardando_qr" | "conectado" | "desconectado" | "erro";
+type WAStatus = "pendente" | "aguardando_qr" | "conectado" | "desconectado" | "erro" | "erro_webhook";
 
 interface AutomationInfo {
   whatsapp_status: WAStatus;
@@ -64,6 +64,7 @@ const waStatusConfig: Record<WAStatus, { label: string; color: string; icon: Rea
   conectado:     { label: "Conectado",                color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",       icon: <CheckCircle2 className="h-3 w-3" /> },
   desconectado:  { label: "Desconectado",             color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",               icon: <XCircle className="h-3 w-3" /> },
   erro:          { label: "Erro de conexão",          color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",               icon: <AlertCircle className="h-3 w-3" /> },
+  erro_webhook:  { label: "Erro no webhook",           color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",               icon: <AlertCircle className="h-3 w-3" /> },
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -249,6 +250,7 @@ export default function SettingsPage() {
   const [waLoading, setWaLoading]   = useState(true);
   const [loadingQr, setLoadingQr]   = useState(false);
   const [waError, setWaError]       = useState("");
+  const [qrPollExpired, setQrPollExpired] = useState(false);
 
   const loadWaStatus = useCallback(async () => {
     if (!user) { setWaLoading(false); return; }
@@ -263,11 +265,18 @@ export default function SettingsPage() {
 
   useEffect(() => { loadWaStatus(); }, [loadWaStatus]);
 
-  // Poll while waiting for QR scan
+  // Poll while waiting for QR scan — para apos 5 minutos pra evitar polling infinito
   useEffect(() => {
-    if (waInfo?.whatsapp_status !== "aguardando_qr") return;
+    if (waInfo?.whatsapp_status !== "aguardando_qr") {
+      setQrPollExpired(false);
+      return;
+    }
     const interval = setInterval(() => loadWaStatus(), 5000);
-    return () => clearInterval(interval);
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      setQrPollExpired(true);
+    }, 5 * 60 * 1000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
   }, [waInfo?.whatsapp_status, loadWaStatus]);
 
   // Realtime update for WhatsApp status
@@ -287,6 +296,7 @@ export default function SettingsPage() {
   const fetchQrCode = async () => {
     setLoadingQr(true);
     setWaError("");
+    setQrPollExpired(false);
     try {
       const { data: { session: s } } = await supabase.auth.getSession();
       if (!s) throw new Error("Sessão expirada");
@@ -572,6 +582,38 @@ export default function SettingsPage() {
                 </Card>
               )}
 
+              {/* Erro de webhook (instancia criada mas Evolution nao aceita webhook) */}
+              {waStatus === "erro_webhook" && (
+                <Card className="shadow-sm border-red-200 dark:border-red-800">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                      <CardTitle className="text-base">Erro na configuração do WhatsApp</CardTitle>
+                    </div>
+                    <CardDescription>
+                      Sua instância foi criada mas a Evolution não aceitou o webhook. Mensagens não chegariam à IA.
+                      Entre em contato com o suporte para reconfigurar.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+
+              {/* Erro generico de Evolution */}
+              {waStatus === "erro" && (
+                <Card className="shadow-sm border-red-200 dark:border-red-800">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                      <CardTitle className="text-base">Erro ao configurar o WhatsApp</CardTitle>
+                    </div>
+                    <CardDescription>
+                      Não conseguimos criar sua instância no WhatsApp. Tente recarregar a página em alguns minutos
+                      ou entre em contato com o suporte.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+
               {/* QR Code */}
               {(waStatus === "aguardando_qr" || waStatus === "desconectado" || (waInfo?.onboarding_done && waStatus !== "conectado")) && (
                 <Card className="shadow-sm">
@@ -589,6 +631,13 @@ export default function SettingsPage() {
                       <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2.5">
                         <AlertCircle className="h-4 w-4 shrink-0" />
                         <span>{waError}</span>
+                      </div>
+                    )}
+
+                    {qrPollExpired && (
+                      <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 rounded-lg px-3 py-2.5">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        <span>QR code expirou. Clique em "Novo QR code" pra gerar outro.</span>
                       </div>
                     )}
 

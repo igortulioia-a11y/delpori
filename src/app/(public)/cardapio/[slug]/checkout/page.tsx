@@ -91,9 +91,16 @@ function MenuCheckoutInner() {
       return;
     }
 
+    // Match de bairro usando word boundaries — "Centro" nao mais matcha "Avenida Centro Oeste"
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const lowerAddr = address.toLowerCase();
     const found = zones.find(z =>
-      z.bairros.some(b => lowerAddr.includes(b.toLowerCase()))
+      z.bairros.some(b => {
+        const bairro = b.trim().toLowerCase();
+        if (!bairro) return false;
+        const pattern = new RegExp(`\\b${escapeRegex(bairro)}\\b`, "i");
+        return pattern.test(lowerAddr);
+      })
     );
 
     if (found) {
