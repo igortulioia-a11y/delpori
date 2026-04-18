@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthUserId } from "@/lib/supabase-admin";
+import { getAuthUserId, supabaseAdmin } from "@/lib/supabase-admin";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { parseBody, sendCampaignMessageSchema } from "@/lib/validation";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
@@ -26,7 +26,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const { telefone, mensagem } = parsed.data;
+    const { campaignId, customerId, telefone, mensagem } = parsed.data;
+
+    // Validar ownership da campanha (anti-IDOR)
+    const { data: campaign } = await supabaseAdmin
+      .from("campaigns")
+      .select("id")
+      .eq("id", campaignId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!campaign) {
+      return NextResponse.json({ error: "Campanha não encontrada" }, { status: 404 });
+    }
+
+    // Se customerId foi enviado (lista vinda de customers), validar ownership
+    if (customerId) {
+      const { data: customer } = await supabaseAdmin
+        .from("customers")
+        .select("id")
+        .eq("id", customerId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!customer) {
+        return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 });
+      }
+    }
+
     const result = await sendWhatsApp(userId, telefone, mensagem);
 
     if (!result.success) {
